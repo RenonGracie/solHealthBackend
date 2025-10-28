@@ -958,8 +958,8 @@ Payment Type: {client_response.payment_type}
                 # Journey Tracking
                 "journey_id": client_response.id,
                 "stage_completed": "3",
-                "stage_1_timestamp": getattr(
-                    client_response, "created_at", datetime.utcnow()
+                "stage_1_timestamp": (
+                    getattr(client_response, "created_at", None) or datetime.utcnow()
                 ).isoformat(),
                 "stage_2_timestamp": data.get(
                     "therapist_confirmation_timestamp", datetime.utcnow().isoformat()
@@ -1205,9 +1205,9 @@ Payment Type: {client_response.payment_type}
                 "selected_therapist_name": data["therapist_name"],
                 "selected_therapist_email": data["therapist_email"],
                 "user_chose_alternative": getattr(client_response, "user_chose_alternative", False),
-                "therapist_selection_timestamp": getattr(
-                    client_response, "therapist_selection_timestamp", datetime.utcnow()
-                ).isoformat() if hasattr(client_response, "therapist_selection_timestamp") else datetime.utcnow().isoformat(),
+                "therapist_selection_timestamp": (
+                    getattr(client_response, "therapist_selection_timestamp", None) or datetime.utcnow()
+                ).isoformat(),
                 # Matched Therapist Data (final confirmed booking - same as selected in most cases)
                 "matched_therapist_id": therapist.id if therapist else None,
                 "matched_therapist_name": data[
