@@ -51,9 +51,17 @@ def assign_practitioner_railway():
         if not os.getenv(user_key) or not os.getenv(pass_key):
             return jsonify({"success": False, "message": f"Missing credentials for {account_type}"}), 500
         
-        # Execute Selenium automation
-        from intakeq_selenium_bot import assign_intakeq_practitioner
-        
+        # Execute Selenium automation (with graceful degradation)
+        try:
+            from intakeq_selenium_bot import assign_intakeq_practitioner
+            selenium_available = True
+        except ImportError as e:
+            logger.error(f"❌ Selenium bot not available: {e}")
+            return jsonify({
+                "success": False,
+                "message": "Selenium automation not available - please check server configuration"
+            }), 503
+
         success, client_url = assign_intakeq_practitioner(account_type, client_id, therapist_full_name, headless=True)
         
         if success:
@@ -100,10 +108,19 @@ def assign_practitioner_railway_direct(account_type: str, client_id: str, therap
         dict: {"success": bool, "client_url": str}
     """
     try:
-        from intakeq_selenium_bot import assign_intakeq_practitioner
-        
+        # Import selenium bot with error handling (graceful degradation)
+        try:
+            from intakeq_selenium_bot import assign_intakeq_practitioner
+        except ImportError as import_err:
+            logger.error(f"❌ Selenium bot not available: {import_err}")
+            return {
+                "success": False,
+                "client_url": None,
+                "error": "Selenium automation not available"
+            }
+
         logger.info(f"🚀 Direct Railway assignment: {client_id} → {therapist_full_name} ({account_type})")
-        
+
         success, client_url = assign_intakeq_practitioner(account_type, client_id, therapist_full_name, headless=True)
         
         # Update database with client profile URL if captured and response_id provided

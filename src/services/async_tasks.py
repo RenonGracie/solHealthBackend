@@ -68,11 +68,20 @@ class AsyncTaskProcessor:
     def _run_selenium_assignment(self, task_data: Dict[str, Any]) -> bool:
         """Execute Selenium practitioner assignment."""
         try:
+            # Check if selenium is disabled via environment variable
+            import os
+            if os.getenv("DISABLE_SELENIUM_BOT", "false").lower() == "true":
+                self.logger.info("⚠️ [ASYNC] Selenium bot disabled via DISABLE_SELENIUM_BOT env var")
+                client_response_id = task_data.get("response_id")
+                if client_response_id:
+                    self._update_practitioner_assignment_status(client_response_id, "disabled")
+                return False
+
             self.logger.info("🤖 [ASYNC] Running Selenium practitioner assignment...")
-            
+
             # Extract client response ID for status updates
             client_response_id = task_data.get("response_id")
-            
+
             # Add delay to allow IntakeQ to process the newly created client
             import time
             delay_seconds = 10
@@ -80,7 +89,15 @@ class AsyncTaskProcessor:
             time.sleep(delay_seconds)
             self.logger.info("✅ [ASYNC] Delay complete, proceeding with Selenium assignment")
 
-            from src.api.railway_practitioner import assign_practitioner_railway_direct
+            # Import with error handling
+            try:
+                from src.api.railway_practitioner import assign_practitioner_railway_direct
+            except ImportError as import_err:
+                self.logger.error(f"❌ [ASYNC] Failed to import railway_practitioner: {import_err}")
+                client_response_id = task_data.get("response_id")
+                if client_response_id:
+                    self._update_practitioner_assignment_status(client_response_id, "failed")
+                return False
 
             # Extract data needed for selenium
             account_type = task_data.get("account_type")

@@ -204,8 +204,8 @@ def run_schema_bootstrap(engine):
 
     try:
         with engine.begin() as conn:
-            # keep boot snappy if someone else holds the lock
-            conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+            # keep boot snappy if someone else holds the lock - reduced from 5s to 3s
+            conn.execute(text("SET LOCAL lock_timeout = '3s'"))
             # take global advisory lock
             conn.execute(text(f"SELECT pg_advisory_lock({LOCK_KEY})"))
 
@@ -219,8 +219,9 @@ def run_schema_bootstrap(engine):
 
         logger.info("🛠️ Schema bootstrap complete (create + reconcile + indexes)")
     except Exception as e:
-        logger.error(f"Schema bootstrap failed: {e}")
-        # prefer not to crash the app; flip to 'raise' if you want hard-fail on DDL errors
+        logger.error(f"⚠️ Schema bootstrap failed (non-fatal): {e}")
+        # Don't crash the app - the tables might already exist from a previous deployment
+        # The app can still start and serve requests even if schema bootstrap fails
 
 
 def init_db(app: Flask, config=None) -> None:

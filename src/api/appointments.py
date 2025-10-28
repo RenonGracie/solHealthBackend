@@ -676,115 +676,122 @@ def book_appointment():
                     logger.info(f"  💰 Using {account_type} IntakeQ account")
 
                     # Launch async task to assign practitioner using Selenium bot
-                    # Import the selenium bot function and utilities
-                    from intakeq_selenium_bot import assign_intakeq_practitioner, check_selenium_grid_health, StepTracker
+                    # Import the selenium bot function and utilities (moved to function scope to avoid blocking startup)
+                    selenium_available = False
+                    try:
+                        from intakeq_selenium_bot import assign_intakeq_practitioner, check_selenium_grid_health, StepTracker
+                        selenium_available = True
+                    except ImportError as import_err:
+                        logger.warning(f"⚠️ Selenium bot not available: {import_err}. Skipping practitioner assignment.")
 
-                    # Create async task for selenium automation with retry logic
-                    def assign_practitioner_task():
-                        """
-                        Async task to assign practitioner in IntakeQ.
-                        Implements retry logic to handle timing issues and transient failures.
-                        """
-                        import time
-                        import os
+                    # Only proceed with practitioner assignment if Selenium is available
+                    if selenium_available:
+                        # Create async task for selenium automation with retry logic
+                        def assign_practitioner_task():
+                            """
+                            Async task to assign practitioner in IntakeQ.
+                            Implements retry logic to handle timing issues and transient failures.
+                            """
+                            import time
+                            import os
 
-                        # Sanitize PII for logging
-                        client_sanitized = StepTracker.sanitize_client_id(str(intakeq_client_id))
-                        therapist_sanitized = StepTracker.sanitize_therapist_name(therapist_name)
+                            # Sanitize PII for logging
+                            client_sanitized = StepTracker.sanitize_client_id(str(intakeq_client_id))
+                            therapist_sanitized = StepTracker.sanitize_therapist_name(therapist_name)
 
-                        # Check Selenium Grid health before attempting assignment
-                        grid_url = os.getenv("SELENIUM_GRID_URL", "http://localhost:4444")
-                        logger.info(f"[SELENIUM] [HEALTH CHECK] Checking Selenium Grid at {grid_url}")
+                            # Check Selenium Grid health before attempting assignment
+                            grid_url = os.getenv("SELENIUM_GRID_URL", "http://localhost:4444")
+                            logger.info(f"[SELENIUM] [HEALTH CHECK] Checking Selenium Grid at {grid_url}")
 
-                        if not check_selenium_grid_health(grid_url):
-                            logger.error(
-                                f"[SELENIUM] [HEALTH CHECK] [FAILED] Selenium Grid not available at {grid_url}"
-                            )
-                            logger.error(
-                                f"[SELENIUM] [HEALTH CHECK] [FAILED] Skipping assignment for {client_sanitized}"
-                            )
-                            return  # Early exit - don't retry if grid is down
-
-                        logger.info(f"[SELENIUM] [HEALTH CHECK] [SUCCESS] Selenium Grid is available")
-
-                        max_retries = 3
-                        retry_delays = [10, 20, 40]  # Exponential backoff: 10s, 20s, 40s
-
-                        for attempt in range(max_retries):
-                            try:
-                                logger.info(
-                                    f"[SELENIUM] [ATTEMPT {attempt + 1}/{max_retries}] "
-                                    f"Assigning {therapist_sanitized} to {client_sanitized}"
+                            if not check_selenium_grid_health(grid_url):
+                                logger.error(
+                                    f"[SELENIUM] [HEALTH CHECK] [FAILED] Selenium Grid not available at {grid_url}"
                                 )
-
-                                result, client_url = assign_intakeq_practitioner(
-                                    account_type=account_type,
-                                    client_id=str(intakeq_client_id),
-                                    practitioner_name=therapist_name,
-                                    headless=True,  # Run in headless mode on server
+                                logger.error(
+                                    f"[SELENIUM] [HEALTH CHECK] [FAILED] Skipping assignment for {client_sanitized}"
                                 )
+                                return  # Early exit - don't retry if grid is down
 
-                                if result:
+                            logger.info(f"[SELENIUM] [HEALTH CHECK] [SUCCESS] Selenium Grid is available")
+
+                            max_retries = 3
+                            retry_delays = [10, 20, 40]  # Exponential backoff: 10s, 20s, 40s
+
+                            for attempt in range(max_retries):
+                                try:
                                     logger.info(
-                                        f"[SELENIUM] [SUCCESS] Assigned {therapist_sanitized} to "
-                                        f"{client_sanitized} on attempt {attempt + 1}"
-                                    )
-                                    if client_url:
-                                        logger.info(f"[SELENIUM] Client profile URL: {client_url}")
-                                    return  # Success - exit retry loop
-                                else:
-                                    logger.warning(
-                                        f"[SELENIUM] [ATTEMPT {attempt + 1}] [FAILED] "
-                                        f"Could not assign {therapist_sanitized} to {client_sanitized}"
+                                        f"[SELENIUM] [ATTEMPT {attempt + 1}/{max_retries}] "
+                                        f"Assigning {therapist_sanitized} to {client_sanitized}"
                                     )
 
-                                    # Retry with exponential backoff
+                                    result, client_url = assign_intakeq_practitioner(
+                                        account_type=account_type,
+                                        client_id=str(intakeq_client_id),
+                                        practitioner_name=therapist_name,
+                                        headless=True,  # Run in headless mode on server
+                                    )
+
+                                    if result:
+                                        logger.info(
+                                            f"[SELENIUM] [SUCCESS] Assigned {therapist_sanitized} to "
+                                            f"{client_sanitized} on attempt {attempt + 1}"
+                                        )
+                                        if client_url:
+                                            logger.info(f"[SELENIUM] Client profile URL: {client_url}")
+                                        return  # Success - exit retry loop
+                                    else:
+                                        logger.warning(
+                                            f"[SELENIUM] [ATTEMPT {attempt + 1}] [FAILED] "
+                                            f"Could not assign {therapist_sanitized} to {client_sanitized}"
+                                        )
+
+                                        # Retry with exponential backoff
+                                        if attempt < max_retries - 1:
+                                            retry_delay = retry_delays[attempt]
+                                            logger.info(
+                                                f"[SELENIUM] Retrying in {retry_delay} seconds "
+                                                f"(attempt {attempt + 2}/{max_retries})"
+                                            )
+                                            time.sleep(retry_delay)
+                                        else:
+                                            logger.error(
+                                                f"[SELENIUM] [EXHAUSTED] All {max_retries} attempts failed "
+                                                f"for {client_sanitized}"
+                                            )
+
+                                except Exception as e:
+                                    logger.error(
+                                        f"[SELENIUM] [ATTEMPT {attempt + 1}] [EXCEPTION] "
+                                        f"Exception during assignment: {e}"
+                                    )
+                                    import traceback
+
+                                    traceback.print_exc()
+
+                                    # Retry on exception
                                     if attempt < max_retries - 1:
                                         retry_delay = retry_delays[attempt]
                                         logger.info(
-                                            f"[SELENIUM] Retrying in {retry_delay} seconds "
+                                            f"[SELENIUM] Retrying after exception in {retry_delay} seconds "
                                             f"(attempt {attempt + 2}/{max_retries})"
                                         )
                                         time.sleep(retry_delay)
                                     else:
                                         logger.error(
-                                            f"[SELENIUM] [EXHAUSTED] All {max_retries} attempts failed "
-                                            f"for {client_sanitized}"
+                                            f"[SELENIUM] [EXHAUSTED] All {max_retries} attempts "
+                                            f"failed with exceptions for {client_sanitized}"
                                         )
 
-                            except Exception as e:
-                                logger.error(
-                                    f"[SELENIUM] [ATTEMPT {attempt + 1}] [EXCEPTION] "
-                                    f"Exception during assignment: {e}"
-                                )
-                                import traceback
+                        # Submit async task with increased initial delay
+                        async_task_processor.submit_task(
+                            task_name=f"assign_practitioner_{intakeq_client_id}",
+                            task_function=assign_practitioner_task,
+                            delay_seconds=10,  # Increased from 5s to 10s to allow IntakeQ to fully create the client
+                        )
 
-                                traceback.print_exc()
-
-                                # Retry on exception
-                                if attempt < max_retries - 1:
-                                    retry_delay = retry_delays[attempt]
-                                    logger.info(
-                                        f"[SELENIUM] Retrying after exception in {retry_delay} seconds "
-                                        f"(attempt {attempt + 2}/{max_retries})"
-                                    )
-                                    time.sleep(retry_delay)
-                                else:
-                                    logger.error(
-                                        f"[SELENIUM] [EXHAUSTED] All {max_retries} attempts "
-                                        f"failed with exceptions for {client_sanitized}"
-                                    )
-
-                    # Submit async task with increased initial delay
-                    async_task_processor.submit_task(
-                        task_name=f"assign_practitioner_{intakeq_client_id}",
-                        task_function=assign_practitioner_task,
-                        delay_seconds=10,  # Increased from 5s to 10s to allow IntakeQ to fully create the client
-                    )
-
-                    logger.info(
-                        f"  🚀 [ASYNC TASK] Practitioner assignment task queued for client {intakeq_client_id}"
-                    )
+                        logger.info(
+                            f"  🚀 [ASYNC TASK] Practitioner assignment task queued for client {intakeq_client_id}"
+                        )
 
                 else:
                     logger.warning(
