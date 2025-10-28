@@ -1,4 +1,4 @@
-i # src/api/appointments.py - IntakeQ integrated appointment booking
+# src/api/appointments.py - IntakeQ integrated appointment booking
 import logging
 import uuid
 from datetime import datetime, timedelta
