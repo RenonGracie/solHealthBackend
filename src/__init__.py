@@ -27,11 +27,17 @@ def create_app(config: Config) -> Flask:
     # Setup logging
     setup_logging(app)
 
-    # Initialize extensions
-    CORS(app, origins=config.CORS_ORIGINS.split(","))
+    # Initialize extensions - Configure CORS properly
+    CORS(
+        app,
+        origins=config.CORS_ORIGINS.split(","),
+        supports_credentials=True,
+        allow_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    )
 
     # Initialize database - pass our config object
-    logger.info("Initializing database connection...")
+    logger.debug("Initializing database connection...")
     try:
         init_db(app, config)  # Pass both app and config
         logger.info("✅ Database initialized successfully")
@@ -255,16 +261,16 @@ def create_app(config: Config) -> Flask:
                 session.close()
 
                 if therapist_count == 0:
-                    logger.info(
+                    logger.debug(
                         "🔄 No therapists found. Starting initial Airtable sync..."
                     )
                     result = airtable_sync_service.sync_all_therapists()
-                    logger.info(
+                    logger.debug(
                         f"✅ Startup sync completed: {result['records_processed']} records processed, "
                         f"{result['records_created']} created, {result['records_updated']} updated"
                     )
                 else:
-                    logger.info(
+                    logger.debug(
                         f"✅ Found {therapist_count} therapists in database. Skipping startup sync."
                     )
 

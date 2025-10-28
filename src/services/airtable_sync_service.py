@@ -28,21 +28,21 @@ class AirtableSyncService:
         self.table_id = os.getenv("AIRTABLE_TABLE_ID", "Therapists")
 
         if not all([self.api_key, self.base_id]):
-            logger.warning("Airtable credentials not configured - Airtable sync disabled")
+            logger.debug("Airtable credentials not configured - Airtable sync disabled")
             self.table = None
             self.enabled = False
             return
 
         self.table = Table(self.api_key, self.base_id, self.table_id)
         self.enabled = True
-        logger.info(f"AirtableSyncService initialized for base {self.base_id}")
+        logger.debug(f"AirtableSyncService initialized for base {self.base_id}")
 
     def sync_all_therapists(self, force_update: bool = False) -> Dict[str, Any]:
         """
         Perform a full sync of all therapists from Airtable.
         """
         if not hasattr(self, 'enabled') or not self.enabled:
-            logger.warning("Airtable sync disabled - skipping sync")
+            logger.debug("Airtable sync disabled - skipping sync")
             return {
                 "status": "skipped",
                 "records_processed": 0,
@@ -62,7 +62,7 @@ class AirtableSyncService:
 
             try:
                 # Fetch all records from Airtable
-                logger.info("Fetching all therapist records from Airtable...")
+                logger.debug("Fetching all therapist records from Airtable...")
                 airtable_records = self.table.all()
 
                 stats = {
@@ -141,7 +141,7 @@ class AirtableSyncService:
                         .delete(synchronize_session=False)
                     )
                     stats["records_deleted"] = deleted_count
-                    logger.info(
+                    logger.debug(
                         f"Deleted {deleted_count} therapists no longer in Airtable"
                     )
 
@@ -165,7 +165,7 @@ class AirtableSyncService:
 
                 session.commit()
 
-                logger.info(f"Sync completed: {stats}")
+                logger.debug(f"Sync completed: {stats}")
                 return stats
 
             except Exception as e:
@@ -202,7 +202,7 @@ class AirtableSyncService:
                 # Fetch records modified since cutoff
                 # Note: Airtable doesn't have built-in filtering by modification time
                 # We'll fetch all and filter, or implement a more sophisticated approach
-                logger.info(f"Fetching records modified since {cutoff_time}")
+                logger.debug(f"Fetching records modified since {cutoff_time}")
 
                 # For now, get all records and filter by last_modified
                 # In production, you might want to implement a more efficient approach
@@ -273,7 +273,7 @@ class AirtableSyncService:
 
                 session.commit()
 
-                logger.info(f"Incremental sync completed: {stats}")
+                logger.debug(f"Incremental sync completed: {stats}")
                 return stats
 
             except Exception as e:

@@ -398,8 +398,10 @@ def create_client_signup():
         )
         logger.info(f"🌟 Lived experiences: {mapped_data.get('lived_experiences', [])}")
 
-        # Log to Google Sheets if enabled - comprehensive logging
+        # Progressive Google Sheets Logging - Stage 1 or Stage 2
         try:
+            from src.services.google_sheets_progressive_logger import progressive_logger
+
             # Prepare comprehensive data for Google Sheets
             comprehensive_data = mapped_data.copy()
 
@@ -416,16 +418,30 @@ def create_client_signup():
             from datetime import datetime
 
             comprehensive_data["signup_timestamp"] = datetime.utcnow().isoformat()
-            comprehensive_data["survey_completed_at"] = datetime.utcnow().isoformat()
+            comprehensive_data["response_id"] = response_id
 
-            # Add any missing fields for comprehensive logging
-            if not comprehensive_data.get("response_id"):
-                comprehensive_data["response_id"] = response_id
+            # Detect if this is partial submission (Stage 1) or complete submission (Stage 2)
+            has_email = bool(comprehensive_data.get("email"))
+            has_phq9 = bool(phq9_total) or any(phq9_responses.values())
+            has_gad7 = bool(gad7_total) or any(gad7_responses.values())
 
-            # Note: Removed old comprehensive logging - now handled by progressive logger at matching stage
-            logger.info(f"📊 Survey data saved for response_id: {response_id}")
+            if has_email and not has_phq9 and not has_gad7:
+                # Stage 1: Partial submission (email capture only)
+                logger.info(f"📊 [STAGE 1] Partial submission detected for {response_id}")
+                progressive_logger.async_log_stage_1(comprehensive_data)
+            elif has_email and (has_phq9 or has_gad7):
+                # Stage 2: Complete submission (with survey data)
+                logger.info(f"📊 [STAGE 2] Complete submission detected for {response_id}")
+                comprehensive_data["survey_completed_at"] = datetime.utcnow().isoformat()
+                progressive_logger.async_log_stage_2(comprehensive_data)
+            else:
+                logger.info(f"📊 Survey data saved (no logging stage matched) for response_id: {response_id}")
+
         except Exception as e:
-            logger.warning(f"Survey data processing warning: {str(e)}")
+            logger.warning(f"Progressive logging warning: {str(e)}")
+            # Don't fail the request if logging fails
+            import traceback
+            traceback.print_exc()
 
         return jsonify({"success": True, "response_id": response_id})
 

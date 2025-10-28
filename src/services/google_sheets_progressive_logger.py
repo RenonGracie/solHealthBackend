@@ -68,7 +68,7 @@ class GoogleSheetsProgressiveLogger:
                 )
                 self.enabled = False
         else:
-            logger.info(
+            logger.debug(
                 "Google Sheets progressive logging disabled - missing sheet_id or credentials or dependencies"
             )
 
@@ -79,7 +79,7 @@ class GoogleSheetsProgressiveLogger:
             self.service = build(
                 "sheets", "v4", credentials=credentials, cache_discovery=False
             )
-            logger.info("Google Sheets progressive logger initialized successfully")
+            logger.debug("Google Sheets progressive logger initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Google Sheets service: {e}")
             self.enabled = False
@@ -219,6 +219,10 @@ class GoogleSheetsProgressiveLogger:
             "benefit_structure",
             "session_cost_dollars",
             "payer_id",
+            # Insurance Correction Tracking
+            "insurance_provider_original",
+            "insurance_provider_corrected",
+            "insurance_correction_type",
             # Enhanced Nirvana Insurance Fields
             "nirvana_plan_name",
             "nirvana_group_id",
@@ -243,15 +247,26 @@ class GoogleSheetsProgressiveLogger:
             "nirvana_policyholder_zip_code",
             "nirvana_policyholder_date_of_birth",
             "nirvana_policyholder_sex",
-            # Matched Therapist Data (8) - Available from Stage 1
+            # Algorithm Suggested Therapist (what matching algorithm recommended) - Stage 2
+            "algorithm_suggested_therapist_id",
+            "algorithm_suggested_therapist_name",
+            "algorithm_suggested_therapist_score",
+            "alternative_therapists_count",
+            "alternative_therapists_names",
+            # Selected Therapist (what user chose to book) - Stage 3
+            "selected_therapist_id",
+            "selected_therapist_name",
+            "selected_therapist_email",
+            "user_chose_alternative",  # TRUE if user picked different than algorithm's #1
+            "therapist_selection_timestamp",
+            # Matched/Booked Therapist (final confirmed booking) - Stage 3
             "matched_therapist_id",
             "matched_therapist_name",
             "matched_therapist_email",
             "match_score",
             "matched_specialties",
-            "therapist_confirmed",  # Stage 2
-            "therapist_confirmation_timestamp",  # Stage 2
-            "alternative_therapists_offered",  # Stage 2
+            "therapist_confirmed",
+            "therapist_confirmation_timestamp",
             # Appointment Data (8) - Available from Stage 3
             "appointment_date",
             "appointment_time",
@@ -272,8 +287,9 @@ class GoogleSheetsProgressiveLogger:
             "safety_screening",
             "matching_preference",
             "what_brings_you",
-            # Tracking Data (10)
+            # Tracking Data (14)
             "sol_health_response_id",
+            "session_id",
             "onboarding_completed_at",
             "survey_completed_at",
             "utm_source",
@@ -283,6 +299,10 @@ class GoogleSheetsProgressiveLogger:
             "completion_timestamp",
             "user_agent",
             "ip_address",
+            # Technical Metadata
+            "screen_resolution",
+            "browser_timezone",
+            "data_completeness_score",
             # System Metadata (5)
             "environment",
             "api_version",
@@ -417,83 +437,36 @@ class GoogleSheetsProgressiveLogger:
         }
 
         # Stage-specific data mapping
-        if stage == 0:
-            # Stage 0: Immediate Nirvana response logging (minimal core data + Nirvana)
-            stage_0_data = {
+        if stage == 1:
+            # NEW Stage 1: Partial submission (email capture)
+            stage_1_data = {
                 # Essential identification
                 "response_id": safe_get(data, "response_id"),
                 "email": safe_get(data, "email"),
                 "first_name": safe_get(data, "first_name"),
-                "last_name": safe_get(data, "last_name"),
-                "phone": safe_get(data, "phone"),
-                "date_of_birth": safe_get(data, "date_of_birth"),
-                "gender": safe_get(data, "gender"),
-                "state": safe_get(data, "state"),
-                
-                # Payment type for routing
-                "payment_type": safe_get(data, "payment_type"),
-                
-                # Insurance provider (user input before Nirvana correction)
-                "insurance_provider": safe_get(data, "insurance_provider"),
-                "insurance_member_id": safe_get(data, "insurance_member_id"),
-                
-                # Nirvana verification timestamp
-                "nirvana_verification_timestamp": now,
-                "nirvana_verification_status": "SUCCESS" if safe_get(data, "nirvana_data") else "FAILED",
-                
-                # All Nirvana insurance data (immediate logging priority)
-                "copay": safe_get(data, "copay"),
-                "deductible": safe_get(data, "deductible"), 
-                "coinsurance": safe_get(data, "coinsurance"),
-                "out_of_pocket_max": safe_get(data, "out_of_pocket_max"),
-                "remaining_deductible": safe_get(data, "remaining_deductible"),
-                "remaining_oop_max": safe_get(data, "remaining_oop_max"),
-                "member_obligation": safe_get(data, "member_obligation"),
-                "benefit_structure": safe_get(data, "benefit_structure"),
-                "session_cost_dollars": safe_get(data, "session_cost_dollars"),
-                "payer_id": safe_get(data, "payer_id"),
-                
-                # Nirvana plan details
-                "nirvana_plan_name": safe_get(data, "nirvana_data", "plan_name"),
-                "nirvana_plan_status": safe_get(data, "nirvana_data", "plan_status"),
-                "nirvana_coverage_status": safe_get(data, "nirvana_data", "coverage_status"),
-                "nirvana_mental_health_coverage": safe_get(data, "nirvana_data", "mental_health_coverage"),
-                
-                # Insurance provider correction tracking
-                "insurance_provider_original": safe_get(data, "insurance_provider_original"),
-                "insurance_provider_corrected": safe_get(data, "insurance_provider_corrected"),
-                "insurance_provider_was_corrected": safe_get(data, "insurance_provider_was_corrected"),
-                "insurance_provider_correction_type": safe_get(data, "insurance_provider_correction_type"),
-                "insurance_provider_validation_status": safe_get(data, "insurance_provider_validation_status"),
-                
-                # Core timestamps for Stage 0
+                # Journey tracking
+                "session_id": safe_get(data, "session_id"),
+                "signup_timestamp": now,
+                # UTM tracking
+                "utm_source": safe_get(data, "utm_source"),
+                "utm_medium": safe_get(data, "utm_medium"),
+                "utm_campaign": safe_get(data, "utm_campaign"),
+                # Technical metadata
+                "user_agent": safe_get(data, "user_agent"),
+                "ip_address": safe_get(data, "ip_address"),
+                "screen_resolution": safe_get(data, "screen_resolution"),
+                "browser_timezone": safe_get(data, "browser_timezone"),
+                # System metadata
+                "environment": os.getenv("ENVIRONMENT", "production"),
+                "api_version": os.getenv("API_VERSION", "1.0"),
+                "frontend_version": os.getenv("FRONTEND_VERSION", "1.0"),
                 "created_at": now,
-                "stage": "0_nirvana_verified",
-                
-                # Comprehensive data capture audit
-                "nirvana_verification_timestamp": now,
-                "nirvana_verification_status": "SUCCESS" if safe_get(data, "nirvana_data") else "FAILED",
-                "data_sources_used": ", ".join(safe_get(data, "_data_sources_found") or []),
-                "fields_extracted_count": safe_get(data, "_fields_extracted") or 0,
-                "nirvana_raw_response_excerpt": str(safe_get(data, "nirvana_data"))[:200] + "..." if safe_get(data, "nirvana_data") else "",
-                
-                # Enhanced financial fields (dollar conversions)
-                "copay_dollars": safe_get(data, "copay_dollars") or (int(safe_get(data, "copay") or 0) / 100 if safe_get(data, "copay") else ""),
-                "deductible_dollars": safe_get(data, "deductible_dollars") or (int(safe_get(data, "deductible") or 0) / 100 if safe_get(data, "deductible") else ""),
-                "remaining_deductible_dollars": safe_get(data, "remaining_deductible_dollars") or (int(safe_get(data, "remaining_deductible") or 0) / 100 if safe_get(data, "remaining_deductible") else ""),
-                "member_obligation_dollars": safe_get(data, "member_obligation_dollars") or (int(safe_get(data, "member_obligation") or 0) / 100 if safe_get(data, "member_obligation") else ""),
-                
-                # Additional Nirvana fields
-                "nirvana_insurance_type": safe_get(data, "insurance_type") or safe_get(data, "nirvana_data", "insurance_type"),
-                "nirvana_plan_begin_date": safe_get(data, "plan_begin_date") or safe_get(data, "nirvana_data", "plan_begin_date"),
-                "nirvana_plan_end_date": safe_get(data, "plan_end_date") or safe_get(data, "nirvana_data", "plan_end_date"),
-                "nirvana_eligibility_end_date": safe_get(data, "eligibility_end_date") or safe_get(data, "nirvana_data", "eligibility_end_date"),
             }
-            journey_tracking_data.update(stage_0_data)
-            
-        if stage >= 1:
-            # Stage 1: Survey completion + initial match
-            stage_1_data = {
+            journey_tracking_data.update(stage_1_data)
+
+        if stage >= 2:
+            # NEW Stage 2: Survey completion + therapist match (with optional Nirvana for insurance users)
+            stage_2_data = {
                 # Basic User Information
                 "response_id": safe_get(data, "response_id"),
                 "email": safe_get(data, "email"),
@@ -666,26 +639,39 @@ class GoogleSheetsProgressiveLogger:
                 "environment": os.getenv("ENVIRONMENT", "production"),
                 "api_version": os.getenv("API_VERSION", "1.0"),
                 "frontend_version": os.getenv("FRONTEND_VERSION", "1.0"),
-                "created_at": now if stage == 1 else "",  # Only set on first creation
-            }
-            journey_tracking_data.update(stage_1_data)
-
-        if stage >= 2:
-            # Stage 2: Therapist confirmation
-            stage_2_data = {
-                "therapist_confirmed": safe_get(data, "therapist_confirmed", "true"),
-                "therapist_confirmation_timestamp": safe_get(
-                    data, "therapist_confirmation_timestamp", now
-                ),
-                "alternative_therapists_offered": array_to_string(
-                    safe_get(data, "alternative_therapists_offered")
-                ),
+                "created_at": now if stage == 2 else "",  # Only set on first full submission
+                # Insurance correction tracking (optional - only if Nirvana ran)
+                "insurance_provider_original": safe_get(data, "insurance_provider_original"),
+                "insurance_provider_corrected": safe_get(data, "insurance_provider_corrected"),
+                "insurance_correction_type": safe_get(data, "insurance_correction_type"),
+                # Nirvana verification (optional - only for insurance users)
+                "nirvana_verification_timestamp": safe_get(data, "nirvana_verification_timestamp") or (now if safe_get(data, "nirvana_data") else ""),
+                "nirvana_verification_status": "SUCCESS" if safe_get(data, "nirvana_data") else ("SKIPPED" if safe_get(data, "payment_type") == "cash_pay" else ""),
+                # Algorithm suggested therapist (from matching algorithm)
+                "algorithm_suggested_therapist_id": safe_get(data, "algorithm_suggested_therapist_id"),
+                "algorithm_suggested_therapist_name": safe_get(data, "algorithm_suggested_therapist_name"),
+                "algorithm_suggested_therapist_score": safe_get(data, "algorithm_suggested_therapist_score"),
+                "alternative_therapists_count": safe_get(data, "alternative_therapists_count"),
+                "alternative_therapists_names": safe_get(data, "alternative_therapists_names"),
+                # Technical metadata
+                "screen_resolution": safe_get(data, "screen_resolution"),
+                "browser_timezone": safe_get(data, "browser_timezone"),
+                "data_completeness_score": safe_get(data, "data_completeness_score"),
             }
             journey_tracking_data.update(stage_2_data)
 
         if stage >= 3:
-            # Stage 3: Booking completion
+            # NEW Stage 3: Booking completion (with therapist selection tracking)
             stage_3_data = {
+                # Selected therapist (what user chose to book - may differ from suggested)
+                "selected_therapist_id": safe_get(data, "selected_therapist_id"),
+                "selected_therapist_name": safe_get(data, "selected_therapist_name"),
+                "selected_therapist_email": safe_get(data, "selected_therapist_email"),
+                "user_chose_alternative": safe_get(data, "user_chose_alternative"),
+                "therapist_selection_timestamp": safe_get(data, "therapist_selection_timestamp") or now,
+                # Therapist confirmation
+                "therapist_confirmed": "true",
+                "therapist_confirmation_timestamp": now,
                 # Appointment Data
                 "appointment_date": safe_get(data, "appointment_date"),
                 "appointment_time": safe_get(data, "appointment_time"),
@@ -876,107 +862,62 @@ class GoogleSheetsProgressiveLogger:
 
     # PUBLIC API METHODS
 
-    def log_stage_0_nirvana_response(self, user_data: Dict[str, Any]) -> bool:
+    def log_stage_1_partial_submission(self, user_data: Dict[str, Any]) -> bool:
         """
-        Stage 0: Immediate logging right after Nirvana 200 response
-        
-        This is the truly progressive first stage that logs immediately when 
-        we get insurance verification data from Nirvana.
-        
+        NEW Stage 1: Partial submission (email capture)
+
+        Logs immediately when user enters their email and starts the survey.
+        Captures: email, first_name, session_id, UTM parameters, technical metadata.
+
         Args:
-            user_data: Dictionary containing survey data + Nirvana response
-            
+            user_data: Dictionary containing partial user data (email, first_name, UTM, etc.)
+
         Returns:
             bool: True if logging successful
         """
-        logger.info("📊 [STAGE 0] Logging immediate Nirvana response data")
-        
-        if not user_data:
-            logger.error("No user data provided for Stage 0 logging")
+        logger.info("📊 [STAGE 1] Logging partial submission (email capture)")
+
+        if not self.enabled:
+            logger.info("Google Sheets progressive logging disabled")
             return False
-            
+
+        if not user_data:
+            logger.error("No user data provided for Stage 1 logging")
+            return False
+
         response_id = user_data.get("response_id")
         if not response_id:
-            logger.error("No response_id found in user data for Stage 0")
+            logger.error("No response_id found in user data for Stage 1")
             return False
-            
+
         try:
-            self._initialize_service()
-            if not self.service:
-                logger.error("Failed to initialize Google Sheets service for Stage 0")
-                return False
-                
-            # Build the range for updating/inserting data
-            range_name = self._build_range("A:Z")  # Full range for stage 0
-            
-            # Get existing data to check for this response_id
-            try:
-                result = self.service.spreadsheets().values().get(
-                    spreadsheetId=self.sheet_id, range=range_name
-                ).execute()
-                values = result.get('values', [])
-            except HttpError as e:
-                logger.warning(f"Could not read existing data for Stage 0: {e}")
-                values = []
-            
-            # Check if this response_id already exists
-            response_id_col = 0  # Assuming response_id is in column A
-            existing_row_index = None
-            
-            for idx, row in enumerate(values[1:], start=2):  # Skip header row
-                if len(row) > response_id_col and row[response_id_col] == response_id:
-                    existing_row_index = idx
-                    break
-            
-            # Flatten user data for Stage 0 (Nirvana-focused)
-            row_data = self._flatten_data_progressive(user_data, stage=0)
-            
-            if existing_row_index:
-                # Update existing row
-                update_range = f"{self.sheet_name}!A{existing_row_index}:Z{existing_row_index}"
-                logger.info(f"📊 [STAGE 0] Updating existing row {existing_row_index}")
-                
-                body = {
-                    'values': [row_data]
-                }
-                
-                self.service.spreadsheets().values().update(
-                    spreadsheetId=self.sheet_id,
-                    range=update_range,
-                    valueInputOption='RAW',
-                    body=body
-                ).execute()
-                
+            logger.info(f"📊 [STAGE 1] Logging partial submission for {response_id}")
+
+            row_data = self._flatten_data_progressive(user_data, stage=1)
+            success = self._update_or_create_row(response_id, row_data, stage=1)
+
+            if success:
+                logger.info(f"✅ [STAGE 1] Successfully logged partial submission for {response_id}")
             else:
-                # Append new row
-                logger.info(f"📊 [STAGE 0] Adding new row for response_id: {response_id}")
-                
-                body = {
-                    'values': [row_data]
-                }
-                
-                self.service.spreadsheets().values().append(
-                    spreadsheetId=self.sheet_id,
-                    range=range_name,
-                    valueInputOption='RAW',
-                    insertDataOption='INSERT_ROWS',
-                    body=body
-                ).execute()
-            
-            logger.info(f"✅ [STAGE 0] Successfully logged Nirvana data for {response_id}")
-            return True
-            
+                logger.error(f"❌ [STAGE 1] Failed to log partial submission for {response_id}")
+
+            return success
+
         except Exception as e:
-            logger.error(f"❌ [STAGE 0] Failed to log Nirvana response: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"❌ [STAGE 1] Error logging partial submission: {e}")
+            traceback.print_exc()
             return False
-    
-    def log_stage_1_survey_complete(self, user_data: Dict[str, Any]) -> bool:
+
+    def log_stage_2_survey_complete(self, user_data: Dict[str, Any]) -> bool:
         """
-        Log Stage 1: Survey completion + therapist match
+        NEW Stage 2: Survey completion + therapist match (with optional Nirvana for insurance users)
+
+        Logs when user completes the full survey including PHQ-9, GAD-7, preferences.
+        For insurance users, also captures Nirvana verification data.
+        For cash-pay users, Nirvana data is skipped.
 
         Args:
-            user_data: Dictionary containing user survey data and match info
+            user_data: Dictionary containing complete survey data, match info, optional Nirvana data
 
         Returns:
             bool: True if successful
@@ -986,7 +927,7 @@ class GoogleSheetsProgressiveLogger:
             return False
 
         # Debug what data we're receiving for Google Sheets
-        logger.info("🔍 [STAGE 1 DATA AUDIT] Received data for Google Sheets:")
+        logger.info("🔍 [STAGE 2 DATA AUDIT] Received data for Google Sheets:")
         logger.info(f"  Total fields: {len(user_data)}")
 
         # Check critical address fields
@@ -1057,73 +998,63 @@ class GoogleSheetsProgressiveLogger:
         try:
             response_id = user_data.get("response_id")
             if not response_id:
-                logger.error("No response_id provided for Stage 1 logging")
+                logger.error("No response_id provided for Stage 2 logging")
                 return False
 
             logger.info(
-                f"📊 [STAGE 1] Logging survey completion + match for {response_id}"
+                f"📊 [STAGE 2] Logging survey completion + match (with optional Nirvana) for {response_id}"
             )
 
-            row_data = self._flatten_data_progressive(user_data, stage=1)
-            success = self._update_or_create_row(response_id, row_data, stage=1)
+            row_data = self._flatten_data_progressive(user_data, stage=2)
+            success = self._update_or_create_row(response_id, row_data, stage=2)
 
             if success:
                 logger.info(
-                    f"✅ [STAGE 1] Successfully logged survey + match data for {response_id}"
+                    f"✅ [STAGE 2] Successfully logged survey + match data for {response_id}"
                 )
             else:
                 logger.error(
-                    f"❌ [STAGE 1] Failed to log survey + match data for {response_id}"
+                    f"❌ [STAGE 2] Failed to log survey + match data for {response_id}"
                 )
 
             return success
 
         except Exception as e:
-            logger.error(f"❌ [STAGE 1] Error logging survey completion: {e}")
+            logger.error(f"❌ [STAGE 2] Error logging survey completion: {e}")
             traceback.print_exc()
             return False
 
+    # BACKWARD COMPATIBILITY: Alias for old method name
+    def log_stage_1_survey_complete(self, user_data: Dict[str, Any]) -> bool:
+        """
+        BACKWARD COMPATIBILITY ALIAS: Redirects to log_stage_2_survey_complete().
+
+        In the new system, survey completion is Stage 2 (not Stage 1).
+        Stage 1 is now partial submission (email capture).
+
+        This alias ensures existing code continues to work.
+        """
+        logger.info("ℹ️ Redirecting log_stage_1_survey_complete → log_stage_2_survey_complete")
+        return self.log_stage_2_survey_complete(user_data)
+
+    # DEPRECATED: Therapist confirmation is now part of Stage 3 (booking)
+    # Keeping for backward compatibility but logs nothing
     def log_stage_2_therapist_confirmed(
         self, response_id: str, confirmation_data: Dict[str, Any]
     ) -> bool:
         """
-        Log Stage 2: Therapist confirmation
+        DEPRECATED: This method is deprecated. Therapist confirmation is now logged as part of Stage 3 booking.
+        Kept for backward compatibility only - does nothing.
 
         Args:
             response_id: User response ID
             confirmation_data: Dictionary containing confirmation details
 
         Returns:
-            bool: True if successful
+            bool: Always returns True
         """
-        if not self.enabled:
-            logger.info("Google Sheets progressive logging disabled")
-            return False
-
-        try:
-            logger.info(f"📊 [STAGE 2] Logging therapist confirmation for {response_id}")
-
-            # Add response_id to data for processing
-            data_with_id = {"response_id": response_id, **confirmation_data}
-
-            row_data = self._flatten_data_progressive(data_with_id, stage=2)
-            success = self._update_or_create_row(response_id, row_data, stage=2)
-
-            if success:
-                logger.info(
-                    f"✅ [STAGE 2] Successfully logged therapist confirmation for {response_id}"
-                )
-            else:
-                logger.error(
-                    f"❌ [STAGE 2] Failed to log therapist confirmation for {response_id}"
-                )
-
-            return success
-
-        except Exception as e:
-            logger.error(f"❌ [STAGE 2] Error logging therapist confirmation: {e}")
-            traceback.print_exc()
-            return False
+        logger.warning(f"⚠️ log_stage_2_therapist_confirmed is deprecated. Therapist confirmation now logged in Stage 3.")
+        return True  # Return True to not break existing code
 
     def log_stage_3_booking_complete(
         self, response_id: str, booking_data: Dict[str, Any]
@@ -1170,26 +1101,26 @@ class GoogleSheetsProgressiveLogger:
     # ASYNC CONVENIENCE METHODS
 
     def async_log_stage_1(self, user_data: Dict[str, Any]):
-        """Async wrapper for Stage 1 logging"""
+        """Async wrapper for NEW Stage 1 partial submission logging"""
 
         def run_async():
-            self.log_stage_1_survey_complete(user_data)
+            self.log_stage_1_partial_submission(user_data)
 
         thread = threading.Thread(target=run_async, daemon=True)
         thread.start()
         logger.info(
-            f"🚀 [ASYNC] Started Stage 1 logging for {user_data.get('response_id', 'unknown')}"
+            f"🚀 [ASYNC] Started Stage 1 (partial submission) logging for {user_data.get('response_id', 'unknown')}"
         )
 
-    def async_log_stage_2(self, response_id: str, confirmation_data: Dict[str, Any]):
-        """Async wrapper for Stage 2 logging"""
+    def async_log_stage_2(self, user_data: Dict[str, Any]):
+        """Async wrapper for NEW Stage 2 complete survey logging"""
 
         def run_async():
-            self.log_stage_2_therapist_confirmed(response_id, confirmation_data)
+            self.log_stage_2_survey_complete(user_data)
 
         thread = threading.Thread(target=run_async, daemon=True)
         thread.start()
-        logger.info(f"🚀 [ASYNC] Started Stage 2 logging for {response_id}")
+        logger.info(f"🚀 [ASYNC] Started Stage 2 (complete survey) logging for {user_data.get('response_id', 'unknown')}")
 
     def async_log_stage_3(self, response_id: str, booking_data: Dict[str, Any]):
         """Async wrapper for Stage 3 logging"""

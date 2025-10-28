@@ -96,7 +96,7 @@ class Config:
 
     # CORS
     CORS_ORIGINS: str = os.getenv(
-        "CORS_ORIGINS", "http://localhost:3000,https://app.solhealth.co,https://hello.solhealth.co"
+        "CORS_ORIGINS", "http://localhost:3000,https://app.solhealth.co,https://hello.solhealth.co,https://solhealthfe-production.up.railway.app"
     )
 
     # Redis Cache (Optional)

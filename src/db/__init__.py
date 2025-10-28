@@ -56,14 +56,14 @@ def create_tables_safely(engine):
     """Create tables, handling any existing database objects gracefully."""
     inspector = inspect(engine)
     existing_tables = inspector.get_table_names()
-    logger.info(f"📋 Existing tables: {existing_tables}")
+    logger.debug(f"📋 Existing tables: {existing_tables}")
 
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
-        logger.info("✅ Database tables created/verified successfully")
+        logger.debug("✅ Database tables created/verified successfully")
 
         final_tables = inspector.get_table_names()
-        logger.info(f"📋 Final tables: {final_tables}")
+        logger.debug(f"📋 Final tables: {final_tables}")
 
         expected = [
             "therapists",
@@ -142,9 +142,18 @@ def reconcile_schema(engine):
                     if col.name in existing_cols:
                         continue
                     sql_type = _get_sql_type_for_column(col)
+
+                    # Build DDL with defaults for Boolean columns
                     ddl = f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col.name} {sql_type}"
+
+                    # Add default value for boolean columns if specified
+                    from sqlalchemy import Boolean
+                    if isinstance(col.type, Boolean) and col.default is not None:
+                        default_val = "FALSE" if col.default.arg == False else "TRUE"
+                        ddl += f" DEFAULT {default_val}"
+
                     try:
-                        logger.info(
+                        logger.debug(
                             f"🧩 Adding missing column: {table_name}.{col.name} ({sql_type})"
                         )
                         conn.execute(text(ddl))
@@ -152,7 +161,7 @@ def reconcile_schema(engine):
                         logger.error(
                             f"Failed to add column {table_name}.{col.name}: {e}"
                         )
-            logger.info("✅ Schema reconciliation complete")
+            logger.debug("✅ Schema reconciliation complete")
     except Exception as e:
         logger.error(f"Schema reconciliation error: {str(e)}")
 
@@ -171,6 +180,10 @@ def ensure_indexes_and_constraints(engine):
         "CREATE INDEX IF NOT EXISTS ix_client_responses_state ON client_responses(state)",
         "CREATE INDEX IF NOT EXISTS ix_client_responses_city ON client_responses(city)",
         "CREATE INDEX IF NOT EXISTS ix_client_responses_postal_code ON client_responses(postal_code)",
+        # Progressive logger tracking indexes
+        "CREATE INDEX IF NOT EXISTS ix_client_responses_algorithm_suggested ON client_responses(algorithm_suggested_therapist_id)",
+        "CREATE INDEX IF NOT EXISTS ix_client_responses_user_chose_alternative ON client_responses(user_chose_alternative)",
+        "CREATE INDEX IF NOT EXISTS ix_client_responses_selection_timestamp ON client_responses(therapist_selection_timestamp)",
         # appointments
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_appointments_intakeq_id ON appointments(intakeq_appointment_id)",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_appointments_google_event_id ON appointments(google_event_id)",
@@ -184,7 +197,7 @@ def ensure_indexes_and_constraints(engine):
         with engine.begin() as conn:
             for ddl in stmts:
                 conn.execute(text(ddl))
-        logger.info("✅ Indexes/constraints ensured")
+        logger.debug("✅ Indexes/constraints ensured")
     except Exception as e:
         logger.error(f"Index/constraint creation error: {e}")
 
@@ -197,7 +210,7 @@ def run_schema_bootstrap(engine):
     """
     auto = os.getenv("AUTO_MIGRATE", "true").lower() in {"1", "true", "yes", "on"}
     if not auto:
-        logger.info("⏭️ AUTO_MIGRATE disabled; skipping schema bootstrap")
+        logger.debug("⏭️ AUTO_MIGRATE disabled; skipping schema bootstrap")
         return
 
     LOCK_KEY = 834726  # stable integer key for advisory lock
@@ -217,7 +230,7 @@ def run_schema_bootstrap(engine):
             # release advisory lock
             conn.execute(text(f"SELECT pg_advisory_unlock({LOCK_KEY})"))
 
-        logger.info("🛠️ Schema bootstrap complete (create + reconcile + indexes)")
+        logger.debug("🛠️ Schema bootstrap complete (create + reconcile + indexes)")
     except Exception as e:
         logger.error(f"⚠️ Schema bootstrap failed (non-fatal): {e}")
         # Don't crash the app - the tables might already exist from a previous deployment
@@ -229,12 +242,12 @@ def init_db(app: Flask, config=None) -> None:
     global engine, SessionLocal
 
     database_url = get_database_url()
-    logger.info("🔗 Connecting to Railway PostgreSQL...")
+    logger.debug("🔗 Connecting to Railway PostgreSQL...")
 
     try:
         if "@" in database_url:
             db_parts = database_url.split("@")[1]
-            logger.info(f"📍 Database: {db_parts}")
+            logger.debug(f"📍 Database: {db_parts}")
     except Exception:
         pass
 

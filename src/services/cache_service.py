@@ -47,7 +47,7 @@ class CacheService:
                     socket_connect_timeout=2,
                     socket_timeout=2,
                 )
-                logger.info(f"Connected to ElastiCache at {elasticache_endpoint}")
+                logger.debug(f"Connected to ElastiCache at {elasticache_endpoint}")
             else:
                 # Local Redis connection
                 self.redis_client = redis.Redis(
@@ -58,14 +58,14 @@ class CacheService:
                     socket_connect_timeout=2,
                     socket_timeout=2,
                 )
-                logger.info(f"Connected to Redis at {redis_host}:{redis_port}")
+                logger.debug(f"Connected to Redis at {redis_host}:{redis_port}")
 
             # Test connection
             self.redis_client.ping()
             self.connected = True
 
         except (RedisError, Exception) as e:
-            logger.warning(
+            logger.debug(
                 f"Redis connection failed: {str(e)}. Using memory cache fallback."
             )
             self.connected = False
@@ -259,7 +259,7 @@ class CacheService:
         count += self.clear_pattern("solhealth:therapists:*")
         count += self.clear_pattern("solhealth:match:*")
         count += self.clear_pattern("solhealth:search:*")
-        logger.info(f"Invalidated {count} therapist cache entries")
+        logger.debug(f"Invalidated {count} therapist cache entries")
         return count
 
     def get_stats(self) -> Dict[str, Any]:

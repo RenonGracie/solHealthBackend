@@ -42,7 +42,7 @@ class GoogleSheetsLogger:
                 logger.error(f"Failed to initialize Google Sheets service: {e}")
                 self.enabled = False
         else:
-            logger.info(
+            logger.debug(
                 "Google Sheets logging disabled - missing sheet_id or credentials or dependencies"
             )
 
@@ -54,7 +54,7 @@ class GoogleSheetsLogger:
             self.service = build(
                 "sheets", "v4", credentials=credentials, cache_discovery=False
             )
-            logger.info("Google Sheets service initialized successfully")
+            logger.debug("Google Sheets service initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Google Sheets service: {e}")
             self.enabled = False
@@ -415,7 +415,7 @@ class GoogleSheetsLogger:
                     valueInputOption="RAW",
                     body={"values": [headers]},
                 ).execute()
-                logger.info("Google Sheets header row updated")
+                logger.debug("Google Sheets header row updated")
 
             return True
 
@@ -426,7 +426,7 @@ class GoogleSheetsLogger:
     def log_user_signup(self, user_data: Dict[str, Any]) -> bool:
         """Log user signup data to Google Sheets"""
         if not self.enabled:
-            logger.info("Google Sheets logging disabled")
+            logger.debug("Google Sheets logging disabled")
             return False
 
         try:
@@ -450,7 +450,7 @@ class GoogleSheetsLogger:
                 body={"values": [row_data]},
             ).execute()
 
-            logger.info(
+            logger.debug(
                 f"Successfully logged user signup to Google Sheets: {user_data.get('email', 'unknown')}"
             )
             return True

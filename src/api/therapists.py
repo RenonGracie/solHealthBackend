@@ -1425,6 +1425,56 @@ def get_therapist_match():
 
         # Note: Removed journey_tracker calls - now handled by progressive logger
 
+        # Store algorithm suggestions and alternatives in database
+        try:
+            if matched_therapists and len(matched_therapists) > 0:
+                # Update client_response with algorithm suggested therapist and alternatives
+                client_response = (
+                    session.query(ClientResponse)
+                    .filter(ClientResponse.id == response_id)
+                    .first()
+                )
+
+                if client_response:
+                    # Store algorithm's #1 suggested therapist
+                    top_match = matched_therapists[0]
+                    client_response.algorithm_suggested_therapist_id = top_match["therapist"].get("id")
+                    client_response.algorithm_suggested_therapist_name = top_match["therapist"].get("name")
+                    client_response.algorithm_suggested_therapist_score = float(top_match.get("score", 0))
+
+                    # Store all alternatives as JSON (summary format: count + names)
+                    alternative_names = []
+                    alternative_ids = []
+                    alternative_scores = []
+
+                    for match in matched_therapists:
+                        therapist = match.get("therapist", {})
+                        alternative_names.append(therapist.get("name", "Unknown"))
+                        alternative_ids.append(therapist.get("id", ""))
+                        alternative_scores.append(float(match.get("score", 0)))
+
+                    client_response.alternative_therapists_offered = {
+                        "count": len(matched_therapists),
+                        "names": alternative_names,
+                        "ids": alternative_ids,
+                        "scores": alternative_scores,
+                    }
+
+                    session.commit()
+                    logger.info(f"✅ Stored algorithm suggestions: #1={top_match['therapist'].get('name')}, total={len(matched_therapists)}")
+
+                    # Update comprehensive_data for Stage 2 logging
+                    comprehensive_data["algorithm_suggested_therapist_id"] = client_response.algorithm_suggested_therapist_id
+                    comprehensive_data["algorithm_suggested_therapist_name"] = client_response.algorithm_suggested_therapist_name
+                    comprehensive_data["algorithm_suggested_therapist_score"] = client_response.algorithm_suggested_therapist_score
+                    comprehensive_data["alternative_therapists_count"] = len(matched_therapists)
+                    comprehensive_data["alternative_therapists_names"] = ", ".join(alternative_names)
+
+        except Exception as e:
+            logger.warning(f"Failed to store algorithm suggestions: {e}")
+            import traceback
+            traceback.print_exc()
+
         return jsonify(
             {
                 "client": {

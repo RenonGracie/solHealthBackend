@@ -19,17 +19,17 @@ scheduler = None
 def sync_therapists_job():
     """Background job to sync therapists from Airtable."""
     try:
-        logger.info("🔄 Starting scheduled Airtable sync...")
+        logger.debug("🔄 Starting scheduled Airtable sync...")
 
         from src.services.airtable_sync_service import airtable_sync_service
 
         result = airtable_sync_service.sync_incremental(hours_back=24)
 
-        logger.info(f"✅ Scheduled sync completed: {result}")
+        logger.debug(f"✅ Scheduled sync completed: {result}")
 
         # Log significant events
         if result["records_created"] > 0 or result["records_updated"] > 0:
-            logger.info(
+            logger.debug(
                 f"📊 Sync summary: {result['records_created']} created, "
                 f"{result['records_updated']} updated, {result['records_deleted']} deleted"
             )
@@ -41,7 +41,7 @@ def sync_therapists_job():
 def cleanup_old_logs_job():
     """Background job to clean up old sync logs."""
     try:
-        logger.info("🧹 Cleaning up old sync logs...")
+        logger.debug("🧹 Cleaning up old sync logs...")
 
         from datetime import datetime, timedelta
 
@@ -57,7 +57,7 @@ def cleanup_old_logs_job():
             )
 
             if deleted_count > 0:
-                logger.info(f"🗑️ Deleted {deleted_count} old sync logs")
+                logger.debug(f"🗑️ Deleted {deleted_count} old sync logs")
 
     except Exception as e:
         logger.error(f"❌ Log cleanup failed: {str(e)}")
@@ -84,7 +84,7 @@ def init_scheduler(app: Flask):
             name="Sync therapists from Airtable",
             replace_existing=True,
         )
-        logger.info(f"📅 Scheduled Airtable sync every {sync_interval_hours} hours")
+        logger.debug(f"📅 Scheduled Airtable sync every {sync_interval_hours} hours")
 
         # Add cleanup job (daily at 2 AM)
         scheduler.add_job(
@@ -96,11 +96,11 @@ def init_scheduler(app: Flask):
             name="Clean up old sync logs",
             replace_existing=True,
         )
-        logger.info("📅 Scheduled daily log cleanup at 2:00 AM")
+        logger.debug("📅 Scheduled daily log cleanup at 2:00 AM")
 
         # Start scheduler
         scheduler.start()
-        logger.info("✅ Background scheduler started successfully")
+        logger.debug("✅ Background scheduler started successfully")
 
         # Shutdown scheduler when app stops
         import atexit

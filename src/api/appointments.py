@@ -1028,6 +1028,32 @@ Payment Type: {client_response.payment_type}
         )
         client_response.updated_at = datetime.now(dt_timezone.utc)
 
+        # Track therapist selection - compare selected vs algorithm suggested
+        if therapist and client_response.algorithm_suggested_therapist_id:
+            # Check if user chose a different therapist than algorithm's #1 pick
+            selected_therapist_id = therapist.id if therapist else None
+            algorithm_suggested_id = client_response.algorithm_suggested_therapist_id
+
+            client_response.user_chose_alternative = (
+                selected_therapist_id != algorithm_suggested_id
+            )
+            client_response.therapist_selection_timestamp = datetime.now(dt_timezone.utc)
+
+            if client_response.user_chose_alternative:
+                logger.info(
+                    f"🔄 User chose alternative therapist: {data['therapist_name']} "
+                    f"(suggested: {client_response.algorithm_suggested_therapist_name})"
+                )
+            else:
+                logger.info(
+                    f"✅ User chose algorithm's #1 suggestion: {data['therapist_name']}"
+                )
+
+        # Store selected therapist (what user actually booked)
+        client_response.selected_therapist = data["therapist_name"]
+        client_response.selected_therapist_id = therapist.id if therapist else None
+        client_response.selected_therapist_email = data["therapist_email"]
+
         # Store IntakeQ client ID if available
         if intakeq_client_id:
             client_response.intakeq_client_id = intakeq_client_id
@@ -1319,7 +1345,31 @@ Payment Type: {client_response.payment_type}
                 "nirvana_policyholder_sex": getattr(
                     client_response, "nirvana_policyholder_sex", ""
                 ),
-                # Matched Therapist Data (use the actual booked therapist, not first matched)
+                # Algorithm suggested therapist (what matching algorithm recommended)
+                "algorithm_suggested_therapist_id": getattr(
+                    client_response, "algorithm_suggested_therapist_id", ""
+                ),
+                "algorithm_suggested_therapist_name": getattr(
+                    client_response, "algorithm_suggested_therapist_name", ""
+                ),
+                "algorithm_suggested_therapist_score": getattr(
+                    client_response, "algorithm_suggested_therapist_score", ""
+                ),
+                "alternative_therapists_count": len(
+                    getattr(client_response, "alternative_therapists_offered", {}).get("names", [])
+                ) if getattr(client_response, "alternative_therapists_offered", None) else 0,
+                "alternative_therapists_names": ", ".join(
+                    getattr(client_response, "alternative_therapists_offered", {}).get("names", [])
+                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
+                # Selected therapist (what user chose to book)
+                "selected_therapist_id": therapist.id if therapist else None,
+                "selected_therapist_name": data["therapist_name"],
+                "selected_therapist_email": data["therapist_email"],
+                "user_chose_alternative": getattr(client_response, "user_chose_alternative", False),
+                "therapist_selection_timestamp": getattr(
+                    client_response, "therapist_selection_timestamp", datetime.utcnow()
+                ).isoformat() if hasattr(client_response, "therapist_selection_timestamp") else datetime.utcnow().isoformat(),
+                # Matched Therapist Data (final confirmed booking - same as selected in most cases)
                 "matched_therapist_id": therapist.id if therapist else None,
                 "matched_therapist_name": data[
                     "therapist_name"

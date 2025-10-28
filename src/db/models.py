@@ -232,6 +232,7 @@ class ClientResponse(Base):
     payment_type = Column(String, index=True)
     therapist_specializes_in = Column(ARRAY(String))
     therapist_identifies_as = Column(String)
+    therapist_gender_preference = Column(String)  # User's preference for therapist gender
     lived_experiences = Column(ARRAY(String))
 
     insurance_provider = Column(String)
@@ -244,6 +245,7 @@ class ClientResponse(Base):
     insurance_provider_original = Column(
         String
     )  # Original user input before Nirvana correction
+    insurance_provider_corrected = Column(Boolean, default=False)  # Was correction applied
     insurance_provider_corrected_at = Column(DateTime)  # When correction was applied
     insurance_payer_id = Column(String)  # Nirvana payer ID for this provider
     insurance_correction_type = Column(
@@ -280,6 +282,7 @@ class ClientResponse(Base):
     user_agent = Column(String)
     screen_resolution = Column(String)
     timezone_data = Column(String)
+    browser_timezone = Column(String)  # More specific than timezone_data
     data_completeness_score = Column(Float)
 
     phq9_responses = Column(JSON)
@@ -293,6 +296,14 @@ class ClientResponse(Base):
     selected_therapist_id = Column(String)
     selected_therapist_email = Column(String)
     matching_preference = Column(String)
+
+    # Algorithm-suggested therapist tracking (what the matching algorithm recommended)
+    algorithm_suggested_therapist_id = Column(String)  # Algorithm's #1 pick
+    algorithm_suggested_therapist_name = Column(String)
+    algorithm_suggested_therapist_score = Column(Float)  # Matching score
+    alternative_therapists_offered = Column(JSON)  # All matches: {count, names, ids, scores}
+    user_chose_alternative = Column(Boolean, default=False)  # Did user pick different than #1?
+    therapist_selection_timestamp = Column(DateTime)  # When user selected their therapist
 
     promo_code = Column(String)
     referred_by = Column(String)
