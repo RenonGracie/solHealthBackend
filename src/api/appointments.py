@@ -1259,17 +1259,17 @@ Payment Type: {client_response.payment_type}
                 "what_brings_you": client_response.what_brings_you,
                 # Tracking Data
                 "sol_health_response_id": client_response.id,
-                "onboarding_completed_at": getattr(
-                    client_response, "created_at", datetime.utcnow()
+                "onboarding_completed_at": (
+                    getattr(client_response, "created_at", None) or datetime.utcnow()
                 ).isoformat(),
-                "survey_completed_at": getattr(
-                    client_response, "updated_at", datetime.utcnow()
+                "survey_completed_at": (
+                    getattr(client_response, "updated_at", None) or datetime.utcnow()
                 ).isoformat(),
                 "utm_source": client_response.utm_source,
                 "utm_medium": client_response.utm_medium,
                 "utm_campaign": client_response.utm_campaign,
-                "signup_timestamp": getattr(
-                    client_response, "created_at", datetime.utcnow()
+                "signup_timestamp": (
+                    getattr(client_response, "created_at", None) or datetime.utcnow()
                 ).isoformat(),
                 "completion_timestamp": datetime.utcnow().isoformat(),
                 "user_agent": getattr(client_response, "user_agent", ""),
@@ -1278,8 +1278,8 @@ Payment Type: {client_response.payment_type}
                 "environment": "production",
                 "api_version": "1.0",
                 "frontend_version": "1.0",
-                "created_at": getattr(
-                    client_response, "created_at", datetime.utcnow()
+                "created_at": (
+                    getattr(client_response, "created_at", None) or datetime.utcnow()
                 ).isoformat(),
                 "updated_at": datetime.utcnow().isoformat(),
                 # Additional Nirvana Fields
