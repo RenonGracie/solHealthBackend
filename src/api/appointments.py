@@ -1184,31 +1184,7 @@ Payment Type: {client_response.payment_type}
                 "nirvana_policyholder_sex": getattr(
                     client_response, "nirvana_policyholder_sex", ""
                 ),
-                # Algorithm suggested therapist (what matching algorithm recommended)
-                "algorithm_suggested_therapist_id": getattr(
-                    client_response, "algorithm_suggested_therapist_id", ""
-                ),
-                "algorithm_suggested_therapist_name": getattr(
-                    client_response, "algorithm_suggested_therapist_name", ""
-                ),
-                "algorithm_suggested_therapist_score": getattr(
-                    client_response, "algorithm_suggested_therapist_score", ""
-                ),
-                "alternative_therapists_count": len(
-                    getattr(client_response, "alternative_therapists_offered", {}).get("names", [])
-                ) if getattr(client_response, "alternative_therapists_offered", None) else 0,
-                "alternative_therapists_names": ", ".join(
-                    getattr(client_response, "alternative_therapists_offered", {}).get("names", [])
-                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
-                # Selected therapist (what user chose to book)
-                "selected_therapist_id": therapist.id if therapist else None,
-                "selected_therapist_name": data["therapist_name"],
-                "selected_therapist_email": data["therapist_email"],
-                "user_chose_alternative": getattr(client_response, "user_chose_alternative", False),
-                "therapist_selection_timestamp": (
-                    getattr(client_response, "therapist_selection_timestamp", None) or datetime.utcnow()
-                ).isoformat(),
-                # Matched Therapist Data (final confirmed booking - same as selected in most cases)
+                # Matched Therapist Data
                 "matched_therapist_id": therapist.id if therapist else None,
                 "matched_therapist_name": data[
                     "therapist_name"
@@ -1289,6 +1265,22 @@ Payment Type: {client_response.payment_type}
                 "nirvana_verification_status": getattr(
                     client_response, "nirvana_verification_status", ""
                 ),
+                # Duplicate Nirvana fields (for Google Sheets compatibility)
+                "nirvana_insurance_company_name": getattr(
+                    client_response, "nirvana_insurance_company_name", ""
+                ),
+                "nirvana_member_id_policy_number": getattr(
+                    client_response, "nirvana_member_id_policy_number", ""
+                ),
+                "nirvana_group_number": getattr(
+                    client_response, "nirvana_group_number", ""
+                ),
+                "nirvana_plan_program": getattr(
+                    client_response, "nirvana_plan_program", ""
+                ),
+                "nirvana_insurance_type": getattr(
+                    client_response, "nirvana_insurance_type", ""
+                ),
                 "nirvana_eligibility_end_date": getattr(
                     client_response, "nirvana_eligibility_end_date", ""
                 ),
@@ -1316,6 +1308,10 @@ Payment Type: {client_response.payment_type}
                 "payer_obligation_dollars": getattr(
                     client_response, "payer_obligation_dollars", ""
                 ),
+                # Duplicate session_cost_dollars (for Google Sheets compatibility)
+                "session_cost_dollars": getattr(
+                    client_response, "session_cost_dollars", ""
+                ),
                 # Telehealth Fields
                 "telehealth_copay": getattr(client_response, "telehealth_copay", ""),
                 "telehealth_member_obligation": getattr(
@@ -1338,9 +1334,6 @@ Payment Type: {client_response.payment_type}
                 "fields_extracted_count": getattr(
                     client_response, "fields_extracted_count", ""
                 ),
-                # Booking metadata
-                "appointment_booked_at": datetime.utcnow().isoformat(),
-                "booking_status": "booked",
             }
 
             # Prepare async task data

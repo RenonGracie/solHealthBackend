@@ -2080,20 +2080,6 @@ class IntakeQSeleniumBot:
         except Exception as e:
             logger.warning(f"⚠️ Error during debug page state: {e}")
 
-    def screenshot_debug(self, filename_prefix: str = "debug"):
-        """Take a screenshot for debugging purposes"""
-        try:
-            import datetime
-
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{filename_prefix}_{timestamp}.png"
-
-            self.driver.save_screenshot(filename)
-            logger.info(f"📸 Debug screenshot saved: {filename}")
-            return filename
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to take screenshot: {e}")
-            return None
 
     def log_visible_elements(self, max_elements: int = 20):
         """Log visible elements for debugging"""
@@ -2164,14 +2150,12 @@ class IntakeQSeleniumBot:
                 self.tracker.complete_step(1, success=True)
             except Exception as e:
                 self.tracker.complete_step(1, success=False, message=str(e))
-                self.screenshot_debug("step1_failed_grid_connection")
                 return False
 
             # ============ STEP 2: Login to IntakeQ ============
             self.tracker.start_step(2, f"Logging into {account_type} account")
             if not self.login(account_type):
                 self.tracker.complete_step(2, success=False, message="Login failed")
-                self.screenshot_debug("step2_failed_login")
                 return False
             self.tracker.complete_step(2, success=True)
 
@@ -2179,7 +2163,6 @@ class IntakeQSeleniumBot:
             self.tracker.start_step(3, "Navigating to Clients page")
             if not self.navigate_to_clients():
                 self.tracker.complete_step(3, success=False, message="Navigation failed")
-                self.screenshot_debug("step3_failed_navigation")
                 return False
             self.tracker.complete_step(3, success=True)
 
@@ -2199,14 +2182,12 @@ class IntakeQSeleniumBot:
                 self.tracker.complete_step(4, success=True)
             except Exception as e:
                 self.tracker.complete_step(4, success=False, message=str(e))
-                self.screenshot_debug("step4_failed_stabilization")
                 return False
 
             # ============ STEP 5: Search for Client ============
             self.tracker.start_step(5, f"Searching for {client_sanitized}")
             if not self.search_and_verify_client(client_id):
                 self.tracker.complete_step(5, success=False, message="Client not found or multiple results")
-                self.screenshot_debug(f"step5_failed_client_search")
                 self.log_visible_elements()
                 return False
             self.tracker.complete_step(5, success=True, message=f"Found {client_sanitized} as only result")
@@ -2215,7 +2196,6 @@ class IntakeQSeleniumBot:
             self.tracker.start_step(6, "Opening client profile page")
             if not self.click_client_profile_link():
                 self.tracker.complete_step(6, success=False, message="Failed to open profile")
-                self.screenshot_debug("step6_failed_profile_open")
                 return False
             self.tracker.complete_step(6, success=True)
 
@@ -2237,7 +2217,6 @@ class IntakeQSeleniumBot:
             self.tracker.start_step(8, "Opening Access Control modal")
             if not self.open_access_control_modal():
                 self.tracker.complete_step(8, success=False, message="Modal did not open")
-                self.screenshot_debug("step8_failed_modal_open")
                 return False
             self.tracker.complete_step(8, success=True)
 
@@ -2251,7 +2230,6 @@ class IntakeQSeleniumBot:
 
                 if not dropdown_element:
                     self.tracker.complete_step(9, success=False, message="Dropdown element not found")
-                    self.screenshot_debug("step9_failed_dropdown_not_found")
                     return False
 
                 # Wait for options to populate from API
@@ -2259,7 +2237,6 @@ class IntakeQSeleniumBot:
 
                 if not success:
                     self.tracker.complete_step(9, success=False, message=f"Only {options_count} options loaded")
-                    self.screenshot_debug("step9_failed_dropdown_empty")
                     return False
 
                 self.tracker.complete_step(9, success=True, message=f"Loaded {options_count} practitioners")
@@ -2269,14 +2246,12 @@ class IntakeQSeleniumBot:
 
             except Exception as e:
                 self.tracker.complete_step(9, success=False, message=str(e))
-                self.screenshot_debug("step9_failed_exception")
                 return False
 
             # ============ STEP 10: Select Practitioner ============
             self.tracker.start_step(10, f"Selecting {therapist_sanitized} from dropdown")
             if not self.select_practitioner_from_dropdown(practitioner_name):
                 self.tracker.complete_step(10, success=False, message=f"{therapist_sanitized} not found in dropdown")
-                self.screenshot_debug("step10_failed_practitioner_selection")
                 self.log_visible_elements()
                 return False
             self.tracker.complete_step(10, success=True, message=f"Selected {therapist_sanitized}")
@@ -2285,7 +2260,6 @@ class IntakeQSeleniumBot:
             self.tracker.start_step(11, "Saving Access Control changes")
             if not self.save_access_control_changes():
                 self.tracker.complete_step(11, success=False, message="Save failed")
-                self.screenshot_debug("step11_failed_save")
                 return False
             self.tracker.complete_step(11, success=True)
 
@@ -2307,7 +2281,6 @@ class IntakeQSeleniumBot:
                 # Don't fail workflow for verification issue
 
             # Final success
-            self.screenshot_debug("step12_successful_assignment")
             self.tracker.log_total_duration()
 
             logger.info("=" * 80)
@@ -2324,8 +2297,6 @@ class IntakeQSeleniumBot:
             logger.error(f"[WORKFLOW] Type: {type(e).__name__}")
             logger.error("=" * 80)
 
-            # Take debug screenshot on error
-            self.screenshot_debug("workflow_exception")
             self.tracker.log_total_duration()
 
             return False
