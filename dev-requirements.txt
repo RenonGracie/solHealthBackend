@@ -1,0 +1,5 @@
+# Development only dependencies
+ipython==8.18.1
+ipdb==0.13.13
+flask-shell-ipython==0.4.1
+watchdog==3.0.0

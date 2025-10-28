@@ -1,0 +1,85 @@
+# Core Framework
+Flask==3.0.0
+flask-openapi3==3.0.1
+flask-cors==4.0.0
+
+# Database
+SQLAlchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.13.0
+
+# Redis
+redis==5.0.1
+
+# AWS SDK (updated for Lambda support)
+boto3==1.34.51
+botocore==1.34.51
+
+# Airtable Integration
+pyairtable==2.3.7
+
+# Additional requirements for Google Sheets integration
+google-api-python-client>=2.0.0
+google-auth>=2.0.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.2.0
+
+# Authentication & Security
+PyJWT==2.8.0
+cryptography==41.0.7
+python-jose==3.3.0
+
+# Data Validation
+pydantic>=2.8.0,<3.0.0
+email-validator==2.1.0
+phonenumbers==8.13.26
+
+# HTTP & Networking
+requests==2.31.0
+urllib3==2.0.7
+
+# Date/Time
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Monitoring & Logging
+sentry-sdk[flask]==1.38.0
+python-json-logger==2.0.7
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-flask==1.3.0
+pytest-mock==3.12.0
+faker==20.1.0
+
+# Development
+python-dotenv==1.0.0
+black==23.12.0
+flake8==6.1.0
+mypy==1.7.1
+pre-commit==3.6.0
+
+# CLI tools
+click==8.1.7
+
+# Utilities
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.23.0
+emoji==2.9.0
+
+# Production Server
+gunicorn==21.2.0
+gevent==23.9.1
+
+# Task scheduling (for periodic Airtable sync)
+APScheduler==3.10.4
+
+# Additional missing dependencies
+werkzeug==3.0.1
+
+tzdata==2025.1
+
+# Selenium for web automation
+selenium==4.15.2
+webdriver-manager==4.0.1

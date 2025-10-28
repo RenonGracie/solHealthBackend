@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.hypothesis/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# AWS
+.aws/
+*.pem
+
+# Docker
+.docker/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+All Interns Grid View.csv
+src/All Interns Grid View.csv
+
+ConsoleOut.txt

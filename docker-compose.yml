@@ -1,0 +1,82 @@
+# Note: 'version' is now optional in modern docker-compose
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: solhealth_admin
+      POSTGRES_PASSWORD: localdev123
+      POSTGRES_DB: solhealth
+    ports:
+      - "8432:5432"  # Changed from 7001 to 8432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solhealth_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "8379:6379"  # Changed from 7002 to 8379
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dynamodb-local:
+    image: amazon/dynamodb-local
+    ports:
+      - "8100:8000"  # Changed from 7003 to 8100
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+
+  selenium:
+    image: selenium/standalone-chrome:latest
+    ports:
+      - "4444:4444"
+      - "7900:7900"  # VNC port for debugging if needed
+    environment:
+      - SE_OPTS="--log-level INFO"
+      - SE_NODE_MAX_SESSIONS=2
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+    shm_size: 2gb
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4444/wd/hub/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"  # Changed from 7000:7000 to 8080:8080
+    environment:
+      - ENV=dev
+      - PORT=8080  # Changed from 7000 to 8080
+      - RDS_HOST=postgres
+      - RDS_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - SELENIUM_GRID_URL=http://selenium:4444/wd/hub
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      dynamodb-local:
+        condition: service_started
+      selenium:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: python run.py
+
+volumes:
+  postgres_data:
+  redis_data:
