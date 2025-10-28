@@ -391,12 +391,13 @@ def book_appointment():
     from src.services.google_sheets_progressive_logger import progressive_logger
 
     confirmation_data = {
+        "response_id": response_id,
         "therapist_confirmed": "true",
         "therapist_confirmation_timestamp": datetime.utcnow().isoformat(),
         "confirmed_therapist_email": data["therapist_email"],
         "confirmed_therapist_name": data["therapist_name"],
     }
-    progressive_logger.async_log_stage_2(response_id, confirmation_data)
+    progressive_logger.async_log_stage_2(confirmation_data)
 
     session = get_db_session()
 
