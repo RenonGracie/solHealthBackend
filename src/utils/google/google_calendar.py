@@ -2024,3 +2024,4 @@ def update_gcalendar_event(
             service.close()
         except Exception:
             pass
+ 
