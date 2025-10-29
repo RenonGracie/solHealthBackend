@@ -1217,6 +1217,15 @@ Payment Type: {client_response.payment_type}
                 "alternative_therapists_names": ", ".join(
                     getattr(client_response, "alternative_therapists_offered", {}).get("names", [])
                 ) if getattr(client_response, "alternative_therapists_offered", None) else "",
+                "alternative_therapists_ids": ", ".join(
+                    str(id) for id in getattr(client_response, "alternative_therapists_offered", {}).get("ids", [])
+                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
+                "alternative_therapists_emails": ", ".join(
+                    getattr(client_response, "alternative_therapists_offered", {}).get("emails", [])
+                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
+                "alternative_therapists_scores": ", ".join(
+                    str(score) for score in getattr(client_response, "alternative_therapists_offered", {}).get("scores", [])
+                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
                 # Selected Therapist (what user chose to book)
                 "selected_therapist_id": therapist.id if therapist else None,
                 "selected_therapist_name": data["therapist_name"],
@@ -1241,6 +1250,10 @@ Payment Type: {client_response.payment_type}
                 "therapist_confirmation_timestamp": data.get(
                     "therapist_confirmation_timestamp", datetime.utcnow().isoformat()
                 ),
+                # Booked Therapist (explicit - same as matched_therapist for clarity)
+                "booked_therapist_id": therapist.id if therapist else None,
+                "booked_therapist_name": data["therapist_name"],
+                "booked_therapist_email": data["therapist_email"],
                 # Appointment Data
                 "appointment_date": start_dt.date().isoformat(),
                 "appointment_time": start_dt.time().isoformat(),
@@ -1375,6 +1388,23 @@ Payment Type: {client_response.payment_type}
                 logger.warning(f"  ⚠️ Missing critical fields: {missing_critical}")
             else:
                 logger.info(f"  ✅ All critical fields present")
+
+            # Check for commonly missing fields that user reported
+            commonly_missing = {
+                'date_of_birth': comprehensive_data.get('date_of_birth'),
+                'race_ethnicity': comprehensive_data.get('race_ethnicity'),
+                'therapist_gender_preference': comprehensive_data.get('therapist_gender_preference'),
+                'what_brings_you': comprehensive_data.get('what_brings_you'),
+                'phq9_total_score': comprehensive_data.get('phq9_total_score'),
+                'gad7_total_score': comprehensive_data.get('gad7_total_score'),
+                'alternative_therapists_names': comprehensive_data.get('alternative_therapists_names'),
+                'booked_therapist_name': comprehensive_data.get('booked_therapist_name'),
+            }
+            logger.info("  📋 User-reported field status:")
+            for field, value in commonly_missing.items():
+                status = "✅" if value else "⚠️ EMPTY"
+                display_val = str(value)[:30] if value else "(empty)"
+                logger.info(f"    {status} {field:35s} = {display_val}")
             logger.info("=" * 50)
 
             # Prepare async task data

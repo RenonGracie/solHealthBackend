@@ -253,6 +253,9 @@ class GoogleSheetsProgressiveLogger:
             "algorithm_suggested_therapist_score",
             "alternative_therapists_count",
             "alternative_therapists_names",
+            "alternative_therapists_ids",
+            "alternative_therapists_emails",
+            "alternative_therapists_scores",
             # Selected Therapist (what user chose to book) - Stage 3
             "selected_therapist_id",
             "selected_therapist_name",
@@ -267,6 +270,10 @@ class GoogleSheetsProgressiveLogger:
             "matched_specialties",
             "therapist_confirmed",
             "therapist_confirmation_timestamp",
+            # Booked Therapist (explicit - same as matched for clarity)
+            "booked_therapist_id",
+            "booked_therapist_name",
+            "booked_therapist_email",
             # Appointment Data (8) - Available from Stage 3
             "appointment_date",
             "appointment_time",
@@ -1123,6 +1130,32 @@ class GoogleSheetsProgressiveLogger:
             row_data = self._flatten_data_progressive(data_with_id, stage=3)
             logger.info(f"  Flattened row_data length: {len(row_data)}")
             logger.info(f"  Non-empty fields: {sum(1 for x in row_data if x)}")
+
+            # VALIDATION: Log column alignment for critical fields
+            headers = self._get_comprehensive_headers()
+            logger.info("=" * 50)
+            logger.info("🔍 [VALIDATION] Column Alignment Check")
+            logger.info(f"  Headers count: {len(headers)}")
+            logger.info(f"  Row data count: {len(row_data)}")
+            logger.info(f"  Match: {'✅ YES' if len(headers) == len(row_data) else '❌ NO - MISALIGNMENT!'}")
+
+            # Log critical fields with their column positions
+            critical_fields = [
+                'response_id', 'email', 'first_name', 'last_name',
+                'date_of_birth', 'age', 'gender', 'race_ethnicity',
+                'phq9_total_score', 'gad7_total_score', 'what_brings_you',
+                'therapist_gender_preference', 'payment_type',
+                'selected_therapist_name', 'matched_therapist_name',
+                'appointment_date', 'intakeq_client_id'
+            ]
+            logger.info("  Critical field mapping:")
+            for field in critical_fields:
+                if field in headers:
+                    idx = headers.index(field)
+                    value = row_data[idx] if idx < len(row_data) else "INDEX OUT OF RANGE"
+                    display_val = str(value)[:50] if value else "(empty)"
+                    logger.info(f"    [{idx:3d}] {field:30s} = {display_val}")
+            logger.info("=" * 50)
 
             logger.info("📊 [SHEETS STAGE 3 CHECKPOINT 4] Updating or creating row in Google Sheets")
             success = self._update_or_create_row(response_id, row_data, stage=3)

@@ -1442,21 +1442,24 @@ def get_therapist_match():
                     client_response.algorithm_suggested_therapist_name = top_match["therapist"].get("name")
                     client_response.algorithm_suggested_therapist_score = float(top_match.get("score", 0))
 
-                    # Store all alternatives as JSON (summary format: count + names)
+                    # Store all alternatives as JSON (summary format: count + names + ids + emails + scores)
                     alternative_names = []
                     alternative_ids = []
+                    alternative_emails = []
                     alternative_scores = []
 
                     for match in matched_therapists:
                         therapist = match.get("therapist", {})
                         alternative_names.append(therapist.get("name", "Unknown"))
                         alternative_ids.append(therapist.get("id", ""))
+                        alternative_emails.append(therapist.get("email", ""))
                         alternative_scores.append(float(match.get("score", 0)))
 
                     client_response.alternative_therapists_offered = {
                         "count": len(matched_therapists),
                         "names": alternative_names,
                         "ids": alternative_ids,
+                        "emails": alternative_emails,
                         "scores": alternative_scores,
                     }
 
