@@ -34,15 +34,27 @@ class AsyncTaskProcessor:
         """
 
         def run_tasks():
+            self.logger.info("=" * 50)
             self.logger.info(
-                f"🔄 [ASYNC POST-BOOKING] Starting background tasks for appointment {appointment_id}"
+                f"🔄 [ASYNC CHECKPOINT 1] Starting background tasks for appointment {appointment_id}"
             )
+            self.logger.info(f"  Client Response ID: {client_response_id}")
+            self.logger.info(f"  Task data keys: {list(task_data.keys())}")
+            self.logger.info(f"  Response ID in task_data: {task_data.get('response_id')}")
+            self.logger.info(f"  comprehensive_data present: {bool(task_data.get('comprehensive_data'))}")
+            if task_data.get('comprehensive_data'):
+                self.logger.info(f"  comprehensive_data fields: {len(task_data.get('comprehensive_data', {}))}")
+            self.logger.info("=" * 50)
 
             # Task 1: Selenium Practitioner Assignment
+            self.logger.info("🤖 [ASYNC CHECKPOINT 2] Starting Selenium practitioner assignment...")
             selenium_success = self._run_selenium_assignment(task_data)
+            self.logger.info(f"  Selenium assignment result: {'✅ Success' if selenium_success else '❌ Failed'}")
 
             # Task 2: Google Sheets Comprehensive Logging
+            self.logger.info("📊 [ASYNC CHECKPOINT 3] Starting Google Sheets Stage 3 logging...")
             sheets_success = self._run_google_sheets_logging(task_data)
+            self.logger.info(f"  Google Sheets logging result: {'✅ Success' if sheets_success else '❌ Failed'}")
 
             # Task 3: Any other post-booking operations can be added here
 
@@ -195,8 +207,9 @@ class AsyncTaskProcessor:
     def _run_google_sheets_logging(self, task_data: Dict[str, Any]) -> bool:
         """Execute Google Sheets comprehensive logging."""
         try:
+            self.logger.info("=" * 50)
             self.logger.info(
-                "📊 [ASYNC] Running Google Sheets progressive logging (Stage 3)..."
+                "📊 [ASYNC SHEETS CHECKPOINT 1] Starting Google Sheets Stage 3 logging"
             )
 
             from src.services.google_sheets_progressive_logger import progressive_logger
@@ -207,31 +220,58 @@ class AsyncTaskProcessor:
                 "response_id"
             )
 
-            if not comprehensive_data or not response_id:
-                self.logger.warning(
-                    "⚠️ [ASYNC] Missing comprehensive data or response_id for Google Sheets logging"
+            self.logger.info(f"  Response ID: {response_id}")
+            self.logger.info(f"  comprehensive_data present: {bool(comprehensive_data)}")
+            self.logger.info(f"  comprehensive_data fields: {len(comprehensive_data)}")
+
+            if not comprehensive_data:
+                self.logger.error(
+                    "❌ [ASYNC SHEETS CHECKPOINT ERROR] Missing comprehensive_data"
                 )
+                self.logger.error(f"  task_data keys: {list(task_data.keys())}")
                 return False
 
+            if not response_id:
+                self.logger.error(
+                    "❌ [ASYNC SHEETS CHECKPOINT ERROR] Missing response_id"
+                )
+                self.logger.error(f"  task_data.response_id: {task_data.get('response_id')}")
+                self.logger.error(f"  comprehensive_data.response_id: {comprehensive_data.get('response_id')}")
+                return False
+
+            self.logger.info(f"  Progressive logger enabled: {progressive_logger.enabled}")
+            self.logger.info(f"  Google Sheets ID: {progressive_logger.sheet_id}")
+            self.logger.info("=" * 50)
+
             # Log Stage 3: Final booking completion
+            self.logger.info("📊 [ASYNC SHEETS CHECKPOINT 2] Calling progressive_logger.log_stage_3_booking_complete()")
             success = progressive_logger.log_stage_3_booking_complete(
                 response_id, comprehensive_data
             )
 
             if success:
+                self.logger.info("=" * 50)
                 self.logger.info(
-                    "✅ [ASYNC] Stage 3 booking completion data logged to Google Sheets"
+                    "✅ [ASYNC SHEETS CHECKPOINT 3] Stage 3 booking completion data logged to Google Sheets successfully"
                 )
+                self.logger.info("=" * 50)
                 return True
             else:
+                self.logger.error("=" * 50)
                 self.logger.error(
-                    "❌ [ASYNC] Failed to log Stage 3 data to Google Sheets"
+                    "❌ [ASYNC SHEETS CHECKPOINT ERROR] Failed to log Stage 3 data to Google Sheets"
                 )
+                self.logger.error("=" * 50)
                 return False
 
         except Exception as e:
-            self.logger.error(f"❌ [ASYNC] Error in Google Sheets logging: {str(e)}")
-            traceback.print_exc()
+            self.logger.error("=" * 50)
+            self.logger.error(f"❌ [ASYNC SHEETS CHECKPOINT EXCEPTION] Error in Google Sheets logging")
+            self.logger.error(f"  Error type: {type(e).__name__}")
+            self.logger.error(f"  Error message: {str(e)}")
+            import traceback
+            self.logger.error(f"  Traceback: {traceback.format_exc()}")
+            self.logger.error("=" * 50)
             return False
 
 

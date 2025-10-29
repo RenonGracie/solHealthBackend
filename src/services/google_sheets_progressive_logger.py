@@ -761,14 +761,24 @@ class GoogleSheetsProgressiveLogger:
 
     def _update_or_create_row(self, response_id: str, row_data: List[Any], stage: int):
         """Update existing row or create new one with data preservation"""
+        logger.info(f"📊 [SHEETS UPDATE CHECKPOINT 1] _update_or_create_row called")
+        logger.info(f"  Response ID: {response_id}")
+        logger.info(f"  Stage: {stage}")
+        logger.info(f"  Row data length: {len(row_data)}")
+        logger.info(f"  Logger enabled: {self.enabled}")
+
         if not self.enabled:
+            logger.warning("⚠️ [SHEETS UPDATE] Logger not enabled, returning False")
             return False
 
         try:
             # Ensure headers exist
+            logger.info("📊 [SHEETS UPDATE CHECKPOINT 2] Ensuring header row exists")
             self._ensure_header_row()
 
+            logger.info("📊 [SHEETS UPDATE CHECKPOINT 3] Finding existing row")
             existing_row = self._find_existing_row(response_id)
+            logger.info(f"  Existing row: {existing_row if existing_row else 'Not found, will create new'}")
 
             if existing_row:
                 # PRESERVE EXISTING DATA - merge instead of overwrite
@@ -809,6 +819,10 @@ class GoogleSheetsProgressiveLogger:
                 # Update with merged data
                 update_range = self._build_range(f"{existing_row}:{existing_row}")
 
+                logger.info(f"📊 [SHEETS UPDATE CHECKPOINT 4] Updating existing row {existing_row}")
+                logger.info(f"  Update range: {update_range}")
+                logger.info(f"  Merged data length: {len(merged_data)}")
+
                 self.service.spreadsheets().values().update(
                     spreadsheetId=self.sheet_id,
                     range=update_range,
@@ -817,11 +831,13 @@ class GoogleSheetsProgressiveLogger:
                 ).execute()
 
                 logger.info(
-                    f"✅ Updated existing row {existing_row} for {response_id} (Stage {stage}) with data preservation"
+                    f"✅ [SHEETS UPDATE CHECKPOINT 5] Updated existing row {existing_row} for {response_id} (Stage {stage}) with data preservation"
                 )
 
             else:
                 # Use only the working sheet range format
+                logger.info(f"📊 [SHEETS UPDATE CHECKPOINT 4] Creating new row for {response_id}")
+
                 append_attempts = [
                     "All Journeys!A:A",  # Primary working sheet tab
                 ]
@@ -829,7 +845,10 @@ class GoogleSheetsProgressiveLogger:
                 append_success = False
                 for append_range in append_attempts:
                     try:
-                        logger.info(f"📊 Trying append range: {append_range}")
+                        logger.info(f"📊 [SHEETS UPDATE CHECKPOINT 5] Trying append range: {append_range}")
+                        logger.info(f"  Row data length: {len(row_data)}")
+                        logger.info(f"  Non-empty fields: {sum(1 for x in row_data if x)}")
+
                         self.service.spreadsheets().values().append(
                             spreadsheetId=self.sheet_id,
                             range=append_range,
@@ -837,27 +856,42 @@ class GoogleSheetsProgressiveLogger:
                             insertDataOption="INSERT_ROWS",
                             body={"values": [row_data]},
                         ).execute()
-                        logger.info(f"✅ Success with append range: {append_range}")
+
+                        logger.info(f"✅ [SHEETS UPDATE CHECKPOINT 6] Success with append range: {append_range}")
                         append_success = True
                         break
                     except Exception as e:
-                        logger.info(
-                            f"❌ Failed with append range {append_range}: {str(e)}"
+                        logger.error(
+                            f"❌ [SHEETS UPDATE ERROR] Failed with append range {append_range}: {str(e)}"
                         )
                         continue
 
                 if not append_success:
+                    logger.error("❌ [SHEETS UPDATE ERROR] All append range formats failed")
                     raise Exception("All append range formats failed")
 
-                logger.info(f"📊 Created new row for {response_id} (Stage {stage})")
+                logger.info(f"✅ [SHEETS UPDATE CHECKPOINT 7] Created new row for {response_id} (Stage {stage})")
 
             return True
 
         except HttpError as e:
-            logger.error(f"Google Sheets API error: {e}")
+            logger.error("=" * 50)
+            logger.error(f"❌ [SHEETS UPDATE HTTP ERROR] Google Sheets API error")
+            logger.error(f"  Response ID: {response_id}")
+            logger.error(f"  Stage: {stage}")
+            logger.error(f"  Error: {e}")
+            logger.error("=" * 50)
             return False
         except Exception as e:
-            logger.error(f"Failed to update/create row: {e}")
+            logger.error("=" * 50)
+            logger.error(f"❌ [SHEETS UPDATE EXCEPTION] Failed to update/create row")
+            logger.error(f"  Response ID: {response_id}")
+            logger.error(f"  Stage: {stage}")
+            logger.error(f"  Error type: {type(e).__name__}")
+            logger.error(f"  Error message: {e}")
+            import traceback as tb
+            logger.error(f"  Traceback: {tb.format_exc()}")
+            logger.error("=" * 50)
             return False
 
     # PUBLIC API METHODS
@@ -1069,32 +1103,58 @@ class GoogleSheetsProgressiveLogger:
         Returns:
             bool: True if successful
         """
+        logger.info("=" * 50)
+        logger.info(f"📊 [SHEETS STAGE 3 CHECKPOINT 1] Received Stage 3 logging request")
+        logger.info(f"  Response ID: {response_id}")
+        logger.info(f"  booking_data fields: {len(booking_data)}")
+        logger.info(f"  Progressive logger enabled: {self.enabled}")
+
         if not self.enabled:
-            logger.info("Google Sheets progressive logging disabled")
+            logger.warning("⚠️ [SHEETS STAGE 3 CHECKPOINT] Google Sheets progressive logging DISABLED")
+            logger.warning(f"  sheet_id: {self.sheet_id}")
+            logger.warning(f"  service: {self.service}")
             return False
 
         try:
-            logger.info(f"📊 [STAGE 3] Logging booking completion for {response_id}")
+            logger.info(f"📊 [SHEETS STAGE 3 CHECKPOINT 2] Processing booking data")
+            logger.info(f"  appointment_id: {booking_data.get('appointment_id')}")
+            logger.info(f"  matched_therapist_name: {booking_data.get('matched_therapist_name')}")
+            logger.info(f"  appointment_date: {booking_data.get('appointment_date')}")
+            logger.info(f"  intakeq_client_id: {booking_data.get('intakeq_client_id')}")
 
             # Add response_id to data for processing
             data_with_id = {"response_id": response_id, **booking_data}
 
+            logger.info("📊 [SHEETS STAGE 3 CHECKPOINT 3] Flattening data for Google Sheets")
             row_data = self._flatten_data_progressive(data_with_id, stage=3)
+            logger.info(f"  Flattened row_data length: {len(row_data)}")
+            logger.info(f"  Non-empty fields: {sum(1 for x in row_data if x)}")
+
+            logger.info("📊 [SHEETS STAGE 3 CHECKPOINT 4] Updating or creating row in Google Sheets")
             success = self._update_or_create_row(response_id, row_data, stage=3)
 
             if success:
+                logger.info("=" * 50)
                 logger.info(
-                    f"✅ [STAGE 3] Successfully logged final booking data for {response_id}"
+                    f"✅ [SHEETS STAGE 3 CHECKPOINT 5] Successfully logged final booking data for {response_id}"
                 )
+                logger.info("=" * 50)
             else:
+                logger.error("=" * 50)
                 logger.error(
-                    f"❌ [STAGE 3] Failed to log final booking data for {response_id}"
+                    f"❌ [SHEETS STAGE 3 CHECKPOINT ERROR] Failed to log final booking data for {response_id}"
                 )
+                logger.error("=" * 50)
 
             return success
 
         except Exception as e:
-            logger.error(f"❌ [STAGE 3] Error logging booking completion: {e}")
+            logger.error("=" * 50)
+            logger.error(f"❌ [SHEETS STAGE 3 CHECKPOINT EXCEPTION] Error logging booking completion")
+            logger.error(f"  Response ID: {response_id}")
+            logger.error(f"  Error type: {type(e).__name__}")
+            logger.error(f"  Error message: {e}")
+            logger.error("=" * 50)
             traceback.print_exc()
             return False
 

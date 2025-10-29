@@ -953,6 +953,13 @@ Payment Type: {client_response.payment_type}
 
         # Execute post-booking tasks asynchronously (Selenium + Google Sheets)
         try:
+            logger.info("=" * 50)
+            logger.info("📊 [STAGE 3 CHECKPOINT 1] Starting comprehensive_data construction")
+            logger.info(f"  Response ID: {response_id}")
+            logger.info(f"  Client Response ID: {client_response.id}")
+            logger.info(f"  Therapist: {data['therapist_name']} ({data['therapist_email']})")
+            logger.info("=" * 50)
+
             # Prepare comprehensive data for Google Sheets logging
             comprehensive_data = {
                 # Journey Tracking
@@ -1126,6 +1133,16 @@ Payment Type: {client_response.payment_type}
                     client_response, "session_cost_dollars", ""
                 ),
                 "payer_id": getattr(client_response, "payer_id", ""),
+                # Insurance Correction Tracking
+                "insurance_provider_original": getattr(
+                    client_response, "insurance_provider_original", ""
+                ),
+                "insurance_provider_corrected": getattr(
+                    client_response, "insurance_provider_corrected", ""
+                ),
+                "insurance_correction_type": getattr(
+                    client_response, "insurance_correction_type", ""
+                ),
                 # Enhanced Nirvana Insurance Fields
                 "nirvana_plan_name": getattr(client_response, "nirvana_plan_name", ""),
                 "nirvana_group_id": getattr(client_response, "nirvana_group_id", ""),
@@ -1184,7 +1201,31 @@ Payment Type: {client_response.payment_type}
                 "nirvana_policyholder_sex": getattr(
                     client_response, "nirvana_policyholder_sex", ""
                 ),
-                # Matched Therapist Data
+                # Algorithm Suggested Therapist (what matching algorithm recommended)
+                "algorithm_suggested_therapist_id": getattr(
+                    client_response, "algorithm_suggested_therapist_id", ""
+                ),
+                "algorithm_suggested_therapist_name": getattr(
+                    client_response, "algorithm_suggested_therapist_name", ""
+                ),
+                "algorithm_suggested_therapist_score": getattr(
+                    client_response, "algorithm_suggested_therapist_score", ""
+                ),
+                "alternative_therapists_count": len(
+                    getattr(client_response, "alternative_therapists_offered", {}).get("names", [])
+                ) if getattr(client_response, "alternative_therapists_offered", None) else 0,
+                "alternative_therapists_names": ", ".join(
+                    getattr(client_response, "alternative_therapists_offered", {}).get("names", [])
+                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
+                # Selected Therapist (what user chose to book)
+                "selected_therapist_id": therapist.id if therapist else None,
+                "selected_therapist_name": data["therapist_name"],
+                "selected_therapist_email": data["therapist_email"],
+                "user_chose_alternative": getattr(client_response, "user_chose_alternative", False),
+                "therapist_selection_timestamp": (
+                    getattr(client_response, "therapist_selection_timestamp", None) or datetime.utcnow()
+                ).isoformat(),
+                # Matched Therapist Data (final confirmed booking)
                 "matched_therapist_id": therapist.id if therapist else None,
                 "matched_therapist_name": data[
                     "therapist_name"
@@ -1199,9 +1240,6 @@ Payment Type: {client_response.payment_type}
                 "therapist_confirmed": "true",
                 "therapist_confirmation_timestamp": data.get(
                     "therapist_confirmation_timestamp", datetime.utcnow().isoformat()
-                ),
-                "alternative_therapists_offered": getattr(
-                    client_response, "alternative_therapists_offered", ""
                 ),
                 # Appointment Data
                 "appointment_date": start_dt.date().isoformat(),
@@ -1235,6 +1273,7 @@ Payment Type: {client_response.payment_type}
                 "what_brings_you": client_response.what_brings_you,
                 # Tracking Data
                 "sol_health_response_id": client_response.id,
+                "session_id": getattr(client_response, "session_id", ""),
                 "onboarding_completed_at": (
                     getattr(client_response, "created_at", None) or datetime.utcnow()
                 ).isoformat(),
@@ -1250,6 +1289,10 @@ Payment Type: {client_response.payment_type}
                 "completion_timestamp": datetime.utcnow().isoformat(),
                 "user_agent": getattr(client_response, "user_agent", ""),
                 "ip_address": getattr(client_response, "ip_address", ""),
+                # Technical Metadata
+                "screen_resolution": getattr(client_response, "screen_resolution", ""),
+                "browser_timezone": getattr(client_response, "browser_timezone", ""),
+                "data_completeness_score": getattr(client_response, "data_completeness_score", ""),
                 # System Metadata
                 "environment": "production",
                 "api_version": "1.0",
@@ -1264,22 +1307,6 @@ Payment Type: {client_response.payment_type}
                 ),
                 "nirvana_verification_status": getattr(
                     client_response, "nirvana_verification_status", ""
-                ),
-                # Duplicate Nirvana fields (for Google Sheets compatibility)
-                "nirvana_insurance_company_name": getattr(
-                    client_response, "nirvana_insurance_company_name", ""
-                ),
-                "nirvana_member_id_policy_number": getattr(
-                    client_response, "nirvana_member_id_policy_number", ""
-                ),
-                "nirvana_group_number": getattr(
-                    client_response, "nirvana_group_number", ""
-                ),
-                "nirvana_plan_program": getattr(
-                    client_response, "nirvana_plan_program", ""
-                ),
-                "nirvana_insurance_type": getattr(
-                    client_response, "nirvana_insurance_type", ""
                 ),
                 "nirvana_eligibility_end_date": getattr(
                     client_response, "nirvana_eligibility_end_date", ""
@@ -1308,10 +1335,6 @@ Payment Type: {client_response.payment_type}
                 "payer_obligation_dollars": getattr(
                     client_response, "payer_obligation_dollars", ""
                 ),
-                # Duplicate session_cost_dollars (for Google Sheets compatibility)
-                "session_cost_dollars": getattr(
-                    client_response, "session_cost_dollars", ""
-                ),
                 # Telehealth Fields
                 "telehealth_copay": getattr(client_response, "telehealth_copay", ""),
                 "telehealth_member_obligation": getattr(
@@ -1336,6 +1359,24 @@ Payment Type: {client_response.payment_type}
                 ),
             }
 
+            logger.info("=" * 50)
+            logger.info("📊 [STAGE 3 CHECKPOINT 2] comprehensive_data constructed successfully")
+            logger.info(f"  Total fields in comprehensive_data: {len(comprehensive_data)}")
+            logger.info(f"  Stage completed: {comprehensive_data.get('stage_completed')}")
+            logger.info(f"  Journey ID: {comprehensive_data.get('journey_id')}")
+            logger.info(f"  Matched Therapist: {comprehensive_data.get('matched_therapist_name')}")
+            logger.info(f"  Appointment ID: {comprehensive_data.get('appointment_id')}")
+            logger.info(f"  IntakeQ Client ID: {comprehensive_data.get('intakeq_client_id')}")
+
+            # Check for critical fields
+            critical_fields = ['response_id', 'email', 'matched_therapist_name', 'appointment_date', 'intakeq_client_id']
+            missing_critical = [f for f in critical_fields if not comprehensive_data.get(f)]
+            if missing_critical:
+                logger.warning(f"  ⚠️ Missing critical fields: {missing_critical}")
+            else:
+                logger.info(f"  ✅ All critical fields present")
+            logger.info("=" * 50)
+
             # Prepare async task data
             account_type = (
                 "cash_pay"
@@ -1353,15 +1394,35 @@ Payment Type: {client_response.payment_type}
                 "comprehensive_data": comprehensive_data,
             }
 
+            logger.info("=" * 50)
+            logger.info("📊 [STAGE 3 CHECKPOINT 3] task_data prepared for async execution")
+            logger.info(f"  Response ID: {task_data.get('response_id')}")
+            logger.info(f"  Account Type: {task_data.get('account_type')}")
+            logger.info(f"  IntakeQ Client ID: {task_data.get('intakeq_client_id')}")
+            logger.info(f"  Therapist: {task_data.get('therapist_name')}")
+            logger.info(f"  comprehensive_data included: {bool(task_data.get('comprehensive_data'))}")
+            logger.info(f"  comprehensive_data fields: {len(task_data.get('comprehensive_data', {}))}")
+            logger.info("=" * 50)
+
             # Execute async post-booking tasks
+            logger.info("🚀 [STAGE 3 CHECKPOINT 4] Executing async post-booking tasks...")
             async_task_processor.execute_post_booking_tasks(
                 task_data=task_data,
                 appointment_id=appointment_id,
                 client_response_id=client_response.id,
             )
+            logger.info("✅ [STAGE 3 CHECKPOINT 5] Async post-booking tasks initiated successfully")
+            logger.info("=" * 50)
 
         except Exception as e:
-            logger.error(f"❌ Error starting async post-booking tasks: {str(e)}")
+            logger.error("=" * 50)
+            logger.error(f"❌ [STAGE 3 CHECKPOINT ERROR] Error starting async post-booking tasks")
+            logger.error(f"  Error type: {type(e).__name__}")
+            logger.error(f"  Error message: {str(e)}")
+            logger.error(f"  Response ID: {response_id}")
+            import traceback
+            logger.error(f"  Traceback: {traceback.format_exc()}")
+            logger.error("=" * 50)
             # Don't fail the booking if async tasks fail to start
 
         # Get therapist program for enhanced logging
