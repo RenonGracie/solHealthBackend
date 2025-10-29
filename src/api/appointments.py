@@ -960,6 +960,38 @@ Payment Type: {client_response.payment_type}
             logger.info(f"  Therapist: {data['therapist_name']} ({data['therapist_email']})")
             logger.info("=" * 50)
 
+            # Helper function to safely parse alternative_therapists_offered (might be JSON string or dict)
+            def safe_parse_alt_therapists(field_name):
+                """Safely extract field from alternative_therapists_offered which might be a JSON string"""
+                import json
+                alt_therapists = getattr(client_response, "alternative_therapists_offered", None)
+                if not alt_therapists:
+                    return [] if field_name in ["names", "ids", "emails", "scores"] else 0 if field_name == "count" else ""
+
+                # If it's a string, try to parse it as JSON
+                if isinstance(alt_therapists, str):
+                    try:
+                        alt_therapists = json.loads(alt_therapists)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse alternative_therapists_offered JSON: {e}")
+                        return [] if field_name in ["names", "ids", "emails", "scores"] else 0 if field_name == "count" else ""
+
+                # Now safely get the field
+                if isinstance(alt_therapists, dict):
+                    if field_name == "count":
+                        return len(alt_therapists.get("names", []))
+                    else:
+                        return alt_therapists.get(field_name, [])
+
+                return [] if field_name in ["names", "ids", "emails", "scores"] else 0 if field_name == "count" else ""
+
+            # Pre-compute alternative therapists data safely
+            safe_alt_therapists_count = safe_parse_alt_therapists("count")
+            safe_alt_therapists_names = ", ".join(safe_parse_alt_therapists("names"))
+            safe_alt_therapists_ids = ", ".join(str(id) for id in safe_parse_alt_therapists("ids"))
+            safe_alt_therapists_emails = ", ".join(safe_parse_alt_therapists("emails"))
+            safe_alt_therapists_scores = ", ".join(str(score) for score in safe_parse_alt_therapists("scores"))
+
             # Prepare comprehensive data for Google Sheets logging
             comprehensive_data = {
                 # Journey Tracking
@@ -1211,21 +1243,11 @@ Payment Type: {client_response.payment_type}
                 "algorithm_suggested_therapist_score": getattr(
                     client_response, "algorithm_suggested_therapist_score", ""
                 ),
-                "alternative_therapists_count": len(
-                    getattr(client_response, "alternative_therapists_offered", {}).get("names", [])
-                ) if getattr(client_response, "alternative_therapists_offered", None) else 0,
-                "alternative_therapists_names": ", ".join(
-                    getattr(client_response, "alternative_therapists_offered", {}).get("names", [])
-                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
-                "alternative_therapists_ids": ", ".join(
-                    str(id) for id in getattr(client_response, "alternative_therapists_offered", {}).get("ids", [])
-                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
-                "alternative_therapists_emails": ", ".join(
-                    getattr(client_response, "alternative_therapists_offered", {}).get("emails", [])
-                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
-                "alternative_therapists_scores": ", ".join(
-                    str(score) for score in getattr(client_response, "alternative_therapists_offered", {}).get("scores", [])
-                ) if getattr(client_response, "alternative_therapists_offered", None) else "",
+                "alternative_therapists_count": safe_alt_therapists_count,
+                "alternative_therapists_names": safe_alt_therapists_names,
+                "alternative_therapists_ids": safe_alt_therapists_ids,
+                "alternative_therapists_emails": safe_alt_therapists_emails,
+                "alternative_therapists_scores": safe_alt_therapists_scores,
                 # Selected Therapist (what user chose to book)
                 "selected_therapist_id": therapist.id if therapist else None,
                 "selected_therapist_name": data["therapist_name"],
