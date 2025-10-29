@@ -312,25 +312,19 @@ class GoogleSheetsProgressiveLogger:
             
             # Additional Nirvana Fields (comprehensive capture)
             "nirvana_verification_timestamp",
-            "nirvana_verification_status", 
-            "nirvana_insurance_company_name",
-            "nirvana_member_id_policy_number",
-            "nirvana_group_number",
-            "nirvana_plan_program",
-            "nirvana_insurance_type",
+            "nirvana_verification_status",
             "nirvana_eligibility_end_date",
             "nirvana_plan_begin_date",
             "nirvana_plan_end_date",
             
             # Enhanced Financial Fields
             "copay_dollars",
-            "deductible_dollars", 
+            "deductible_dollars",
             "remaining_deductible_dollars",
             "oop_max_dollars",
             "remaining_oop_max_dollars",
             "member_obligation_dollars",
             "payer_obligation_dollars",
-            "session_cost_dollars",
             
             # Telehealth Fields
             "telehealth_copay",
