@@ -440,6 +440,18 @@ def create_client_signup():
                 comprehensive_data["gad7_scores"] = gad7_responses
                 comprehensive_data["gad7_total"] = gad7_total
 
+            # Map field names to match Google Sheets logger expectations
+            if "therapist_specializes_in" in comprehensive_data:
+                comprehensive_data["therapist_specialization"] = comprehensive_data["therapist_specializes_in"]
+            if "therapist_identifies_as" in comprehensive_data:
+                comprehensive_data["therapist_gender_preference"] = comprehensive_data["therapist_identifies_as"]
+            if "lived_experiences" in comprehensive_data:
+                comprehensive_data["therapist_lived_experiences"] = comprehensive_data["lived_experiences"]
+
+            # Add country field (default to USA if not provided)
+            if "country" not in comprehensive_data or not comprehensive_data.get("country"):
+                comprehensive_data["country"] = "USA"
+
             # Add timestamps
             from datetime import datetime
 
@@ -448,20 +460,31 @@ def create_client_signup():
 
             # Detect if this is partial submission (Stage 1) or complete submission (Stage 2)
             has_email = bool(comprehensive_data.get("email"))
-            has_phq9 = bool(phq9_total) or any(phq9_responses.values())
-            has_gad7 = bool(gad7_total) or any(gad7_responses.values())
+            has_phq9 = bool(phq9_total) or any(v for v in phq9_responses.values() if v not in [None, "", 0])
+            has_gad7 = bool(gad7_total) or any(v for v in gad7_responses.values() if v not in [None, "", 0])
+
+            # Enhanced logging for stage detection
+            logger.info("=" * 80)
+            logger.info("🎯 [STAGE DETECTION]")
+            logger.info(f"  has_email: {has_email}")
+            logger.info(f"  has_phq9: {has_phq9} (total: {phq9_total}, responses: {sum(1 for v in phq9_responses.values() if v)})")
+            logger.info(f"  has_gad7: {has_gad7} (total: {gad7_total}, responses: {sum(1 for v in gad7_responses.values() if v)})")
+            logger.info("=" * 80)
 
             if has_email and not has_phq9 and not has_gad7:
-                # Stage 1: Partial submission (email capture only)
+                # Stage 1: Partial submission (email capture only, before survey)
                 logger.info(f"📊 [STAGE 1] Partial submission detected for {response_id}")
+                logger.info(f"  ✅ This should fire after email submission, before survey starts")
                 progressive_logger.async_log_stage_1(comprehensive_data)
             elif has_email and (has_phq9 or has_gad7):
                 # Stage 2: Complete submission (with survey data)
                 logger.info(f"📊 [STAGE 2] Complete submission detected for {response_id}")
+                logger.info(f"  ✅ This should fire after survey completion")
                 comprehensive_data["survey_completed_at"] = datetime.utcnow().isoformat()
                 progressive_logger.async_log_stage_2(comprehensive_data)
             else:
-                logger.info(f"📊 Survey data saved (no logging stage matched) for response_id: {response_id}")
+                logger.warning(f"⚠️ [NO STAGE MATCHED] Data saved but no Google Sheets logging triggered for {response_id}")
+                logger.warning(f"  has_email: {has_email}, has_phq9: {has_phq9}, has_gad7: {has_gad7}")
 
         except Exception as e:
             logger.warning(f"Progressive logging warning: {str(e)}")
