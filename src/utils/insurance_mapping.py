@@ -18,9 +18,9 @@ INSURANCE_PROVIDER_MAP = {
     "Aetna Better Health": "60054",
     "Aetna Better Health of New Jersey": "60054",
     "Aetna Inc": "60054",
-    "Cigna": "60039",
-    "Cigna Healthcare": "60039",
-    "Cigna Health": "60039",
+    "Cigna": "62308",
+    "Cigna Healthcare": "62308",
+    "Cigna Health": "62308",
     "United Healthcare": "60558",
     "United Health Care": "60558",
     "UnitedHealthcare": "60558",
@@ -54,7 +54,7 @@ INSURANCE_PROVIDER_MAP = {
 # Reverse mapping: Payer ID -> Canonical Provider Name
 PAYER_ID_TO_PROVIDER = {
     "60054": "Aetna Better Health",
-    "60039": "Cigna Healthcare",
+    "62308": "Cigna Healthcare",
     "60558": "United Healthcare",
     "60512": "Anthem Blue Cross",
     "60495": "Horizon Blue Cross Blue Shield",
@@ -316,7 +316,7 @@ if __name__ == "__main__":
     validation_tests = [
         ("Aetna", "60054", "Aetna Better Health", "Correct input"),
         ("Aetna", "64157", "City of Newark", "Wrong provider corrected"),
-        ("Random Insurance", "60039", "Cigna Healthcare", "Unmapped input corrected"),
+        ("Random Insurance", "62308", "Cigna Healthcare", "Unmapped input corrected"),
     ]
 
     for user_input, nirvana_payer, nirvana_plan, description in validation_tests:
