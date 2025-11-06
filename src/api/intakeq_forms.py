@@ -311,11 +311,19 @@ def create_intakeq_client():
                 value = client_data.get(field, "")
                 logger.info(f"      {field}: '{value}'")
 
-        # Determine which IntakeQ API key to use based on payment type
+        # Determine which IntakeQ API key to use based on payment type and state
         payment_type = client_data.get("payment_type", "cash_pay")
         cash_pay_key = os.getenv("CASH_PAY_INTAKEQ_API_KEY")
-        insurance_key = os.getenv("INSURANCE_INTAKEQ_API_KEY")
-        intakeq_api_key = cash_pay_key if payment_type == "cash_pay" else insurance_key
+
+        if payment_type == "cash_pay":
+            intakeq_api_key = cash_pay_key
+        else:  # insurance
+            client_state = client_data.get("state", "")
+            from src.utils.intakeq.state_config import get_insurance_intakeq_config
+            intakeq_api_key = get_insurance_intakeq_config(client_state, 'api_key')
+            if not intakeq_api_key:
+                # Fallback to generic insurance key
+                intakeq_api_key = os.getenv("INSURANCE_INTAKEQ_API_KEY")
 
         if not intakeq_api_key:
             error_msg = f"Missing IntakeQ API key for payment type: {payment_type}"
@@ -1004,11 +1012,15 @@ def create_intakeq_client():
                     assign_practitioner_railway_direct,
                 )
 
+                # Get client state for state-specific IntakeQ credentials
+                client_state = client_data.get("state", "")
+
                 assignment_result = assign_practitioner_railway_direct(
                     account_type=payment_type,
                     client_id=str(client_id),
                     therapist_full_name=therapist_name,
-                    response_id=client_data.get("response_id")
+                    response_id=client_data.get("response_id"),
+                    state=client_state
                 )
                 
                 assignment_success = assignment_result.get("success", False)
@@ -2125,19 +2137,23 @@ def get_intakeq_client():
     try:
         email = request.args.get("email", "").strip()
         payment_type = request.args.get("payment_type", "cash_pay").strip()
+        client_state = request.args.get("state", "").strip()
 
         if not email:
             return jsonify({"error": "email parameter is required"}), 400
 
         # Log the request
-        logger.info(f"🔍 [INTAKEQ CLIENT LOOKUP] {email} ({payment_type})")
+        logger.info(f"🔍 [INTAKEQ CLIENT LOOKUP] {email} ({payment_type}, state: {client_state})")
 
-        # Determine which IntakeQ API key to use
-        intakeq_api_key = (
-            os.getenv("CASH_PAY_INTAKEQ_API_KEY")
-            if payment_type == "cash_pay"
-            else os.getenv("INSURANCE_INTAKEQ_API_KEY")
-        )
+        # Determine which IntakeQ API key to use based on payment type and state
+        if payment_type == "cash_pay":
+            intakeq_api_key = os.getenv("CASH_PAY_INTAKEQ_API_KEY")
+        else:  # insurance
+            from src.utils.intakeq.state_config import get_insurance_intakeq_config
+            intakeq_api_key = get_insurance_intakeq_config(client_state, 'api_key')
+            if not intakeq_api_key:
+                # Fallback to generic insurance key
+                intakeq_api_key = os.getenv("INSURANCE_INTAKEQ_API_KEY")
 
         if not intakeq_api_key:
             error_msg = f"Missing IntakeQ API key for payment type: {payment_type}"
@@ -2221,12 +2237,20 @@ def send_mandatory_form():
                 400,
             )
 
-        # Get appropriate API key and form ID based on payment type
+        # Get appropriate API key and form ID based on payment type and state
         if payment_type == "cash_pay":
             intakeq_api_key = os.getenv("CASH_PAY_INTAKEQ_API_KEY")
             mandatory_form_id = os.getenv("CASH_PAY_MANDATORY_FORM_ID")
         else:  # insurance
-            intakeq_api_key = os.getenv("INSURANCE_INTAKEQ_API_KEY")
+            # Get state from data for state-specific API key
+            client_state = data.get("state", "")
+            from src.utils.intakeq.state_config import get_insurance_intakeq_config
+            intakeq_api_key = get_insurance_intakeq_config(client_state, 'api_key')
+            if not intakeq_api_key:
+                # Fallback to generic insurance key
+                intakeq_api_key = os.getenv("INSURANCE_INTAKEQ_API_KEY")
+
+            # Form ID is shared for both NJ and NY
             mandatory_form_id = os.getenv("INSURANCE_MANDATORY_FORM_ID")
 
         if not intakeq_api_key:

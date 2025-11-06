@@ -296,8 +296,17 @@ def create_intakeq_client_profile(client_response):
         # Call IntakeQ creation logic directly (avoid HTTP self-call)
         payment_type = client_data.get("payment_type", "cash_pay")
         cash_pay_key = os.getenv("CASH_PAY_INTAKEQ_API_KEY")
-        insurance_key = os.getenv("INSURANCE_INTAKEQ_API_KEY")
-        intakeq_api_key = cash_pay_key if payment_type == "cash_pay" else insurance_key
+
+        if payment_type == "cash_pay":
+            intakeq_api_key = cash_pay_key
+        else:  # insurance
+            # client_response.state is already available from DB
+            client_state = client_response.state
+            from src.utils.intakeq.state_config import get_insurance_intakeq_config
+            intakeq_api_key = get_insurance_intakeq_config(client_state, 'api_key')
+            if not intakeq_api_key:
+                # Fallback to generic insurance key
+                intakeq_api_key = os.getenv("INSURANCE_INTAKEQ_API_KEY")
 
         if not intakeq_api_key:
             error_msg = f"Missing IntakeQ API key for payment type: {payment_type}"

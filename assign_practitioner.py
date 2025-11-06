@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def assign_practitioner(
-    account_type: str, client_id: str, therapist_full_name: str, headless: bool = True
+    account_type: str, client_id: str, therapist_full_name: str, headless: bool = True, state: str = None
 ) -> bool:
     """
     Assign a practitioner to a client in IntakeQ
@@ -26,12 +26,13 @@ def assign_practitioner(
         client_id: IntakeQ Client ID (e.g., "5781")
         therapist_full_name: Full name of therapist (e.g., "Catherine Burnett")
         headless: Whether to run browser in headless mode (default: True)
+        state: Client state (required for insurance, e.g., 'NJ' or 'NY')
 
     Returns:
         bool: True if successful, False otherwise
 
     Example:
-        success = assign_practitioner("insurance", "5781", "Catherine Burnett")
+        success = assign_practitioner("insurance", "5781", "Catherine Burnett", state="NJ")
     """
     try:
         # Validate account type
@@ -58,6 +59,7 @@ def assign_practitioner(
             account_type=account_type,
             client_id=str(client_id),
             practitioner_name=therapist_full_name,
+            state=state,
         )
 
         if success:

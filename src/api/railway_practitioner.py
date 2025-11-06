@@ -93,17 +93,18 @@ def assign_practitioner_railway():
         return jsonify({"success": False, "message": str(e)}), 500
 
 
-def assign_practitioner_railway_direct(account_type: str, client_id: str, therapist_full_name: str, response_id: str = None) -> dict:
+def assign_practitioner_railway_direct(account_type: str, client_id: str, therapist_full_name: str, response_id: str = None, state: str = None) -> dict:
     """
     Direct function call for Railway Selenium assignment.
     Used by intakeq_forms.py and async_tasks.py
-    
+
     Args:
         account_type: 'insurance' or 'cash_pay'
-        client_id: IntakeQ client ID  
+        client_id: IntakeQ client ID
         therapist_full_name: Full name of therapist to assign
         response_id: Optional response ID for database update
-    
+        state: Client state (required for insurance, e.g., 'NJ' or 'NY')
+
     Returns:
         dict: {"success": bool, "client_url": str}
     """
@@ -119,9 +120,9 @@ def assign_practitioner_railway_direct(account_type: str, client_id: str, therap
                 "error": "Selenium automation not available"
             }
 
-        logger.info(f"🚀 Direct Railway assignment: {client_id} → {therapist_full_name} ({account_type})")
+        logger.info(f"🚀 Direct Railway assignment: {client_id} → {therapist_full_name} ({account_type}, state: {state})")
 
-        success, client_url = assign_intakeq_practitioner(account_type, client_id, therapist_full_name, headless=True)
+        success, client_url = assign_intakeq_practitioner(account_type, client_id, therapist_full_name, headless=True, state=state)
         
         # Update database with client profile URL if captured and response_id provided
         if success and client_url and response_id:

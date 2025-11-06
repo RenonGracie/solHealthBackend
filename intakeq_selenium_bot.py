@@ -178,23 +178,33 @@ class IntakeQSeleniumBot:
         self.driver.set_window_size(1400, 1080)
         logger.info("✅ Driver initialized successfully with window size 1400x1080")
 
-    def login(self, account_type: str) -> bool:
+    def login(self, account_type: str, state: str = None) -> bool:
         """
-        Login to IntakeQ using the specified account type
+        Login to IntakeQ using the specified account type and state
 
         Args:
             account_type: Either 'insurance' or 'cash_pay'
+            state: Client state (required for insurance, e.g., 'NJ' or 'NY')
 
         Returns:
             bool: True if login successful, False otherwise
         """
         try:
-            logger.info(f"[LOGIN] Starting login process for {account_type} account")
+            logger.info(f"[LOGIN] Starting login process for {account_type} account (state: {state})")
 
-            # Get credentials based on account type
+            # Get credentials based on account type and state
             if account_type.lower() == "insurance":
-                username = os.getenv("INSURANCE_INTAKEQ_USR")
-                password = os.getenv("INSURANCE_INTAKEQ_PAS")
+                # Use state-specific credentials for insurance
+                if state and state in ['NJ', 'NY']:
+                    from src.utils.intakeq.state_config import get_insurance_intakeq_config
+                    username = get_insurance_intakeq_config(state, 'username')
+                    password = get_insurance_intakeq_config(state, 'password')
+                    logger.info(f"[LOGIN] Using {state}-specific insurance credentials")
+                else:
+                    # Fallback to generic insurance credentials
+                    username = os.getenv("INSURANCE_INTAKEQ_USR")
+                    password = os.getenv("INSURANCE_INTAKEQ_PAS")
+                    logger.info(f"[LOGIN] Using generic insurance credentials (fallback)")
             elif account_type.lower() == "cash_pay":
                 username = os.getenv("CASH_PAY_INTAKEQ_USR")
                 password = os.getenv("CASH_PAY_INTAKEQ_PAS")
@@ -2118,7 +2128,7 @@ class IntakeQSeleniumBot:
         return getattr(self, 'client_profile_url', '')
 
     def assign_client_to_practitioner(
-        self, account_type: str, client_id: str, practitioner_name: str
+        self, account_type: str, client_id: str, practitioner_name: str, state: str = None
     ) -> bool:
         """
         Complete flow to assign a client to a practitioner with 12 explicit steps,
@@ -2128,6 +2138,7 @@ class IntakeQSeleniumBot:
             account_type: 'insurance' or 'cash_pay'
             client_id: Client ID to search for
             practitioner_name: Full name of the practitioner to assign
+            state: Client state (required for insurance, e.g., 'NJ' or 'NY')
 
         Returns:
             bool: True if successful, False otherwise
@@ -2153,8 +2164,8 @@ class IntakeQSeleniumBot:
                 return False
 
             # ============ STEP 2: Login to IntakeQ ============
-            self.tracker.start_step(2, f"Logging into {account_type} account")
-            if not self.login(account_type):
+            self.tracker.start_step(2, f"Logging into {account_type} account (state: {state})")
+            if not self.login(account_type, state=state):
                 self.tracker.complete_step(2, success=False, message="Login failed")
                 return False
             self.tracker.complete_step(2, success=True)
@@ -2311,7 +2322,7 @@ class IntakeQSeleniumBot:
 
 
 def assign_intakeq_practitioner(
-    account_type: str, client_id: str, practitioner_name: str, headless: bool = True
+    account_type: str, client_id: str, practitioner_name: str, headless: bool = True, state: str = None
 ) -> tuple[bool, str]:
     """
     Convenience function to assign a client to a practitioner in IntakeQ
@@ -2321,12 +2332,13 @@ def assign_intakeq_practitioner(
         client_id: Client ID to search for
         practitioner_name: Full name of the practitioner to assign to
         headless: Whether to run browser in headless mode
+        state: Client state (required for insurance, e.g., 'NJ' or 'NY')
 
     Returns:
         tuple[bool, str]: (success_status, client_profile_url)
     """
     bot = IntakeQSeleniumBot(headless=headless)
-    success = bot.assign_client_to_practitioner(account_type, client_id, practitioner_name)
+    success = bot.assign_client_to_practitioner(account_type, client_id, practitioner_name, state=state)
     client_url = bot.get_client_profile_url() if success else ""
     return success, client_url
 

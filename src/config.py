@@ -66,6 +66,26 @@ class Config:
         "INTAKEQ_AUTH_KEY", os.getenv("CASH_PAY_INTAKEQ_API_KEY", "")
     )
 
+    # State-specific Insurance IntakeQ credentials (NJ and NY)
+    # NJ credentials with fallback to generic INSURANCE_* vars for backward compatibility
+    NJ_INSURANCE_INTAKEQ_API_KEY: str = os.getenv(
+        "NJ_INSURANCE_INTAKEQ_API_KEY",
+        os.getenv("INSURANCE_INTAKEQ_API_KEY", "")
+    )
+    NJ_INSURANCE_INTAKEQ_USR: str = os.getenv(
+        "NJ_INSURANCE_INTAKEQ_USR",
+        os.getenv("INSURANCE_INTAKEQ_USR", "")
+    )
+    NJ_INSURANCE_INTAKEQ_PAS: str = os.getenv(
+        "NJ_INSURANCE_INTAKEQ_PAS",
+        os.getenv("INSURANCE_INTAKEQ_PAS", "")
+    )
+
+    # NY credentials (no fallback - must be explicitly set)
+    NY_INSURANCE_INTAKEQ_API_KEY: str = os.getenv("NY_INSURANCE_INTAKEQ_API_KEY", "")
+    NY_INSURANCE_INTAKEQ_USR: str = os.getenv("NY_INSURANCE_INTAKEQ_USR", "")
+    NY_INSURANCE_INTAKEQ_PAS: str = os.getenv("NY_INSURANCE_INTAKEQ_PAS", "")
+
     # IntakeQ Test/Development IDs
     TEST_USER_ID: str = os.getenv("TEST_USER_ID", "")
     TEST_PRACTITIONER_ID: str = os.getenv("TEST_PRACTITIONER_ID", "")

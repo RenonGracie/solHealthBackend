@@ -992,13 +992,13 @@ def get_therapist_match():
         # ========== HARD FACTOR 2: Payment Type → Program ==========
         payment_type = (client_data.get("payment_type") or "cash_pay").strip().lower()
 
-        # Insurance is only available in NJ for now
-        if payment_type == "insurance" and client_state != "NJ":
-            logger.warning(f"⚠️ Insurance requested for non-NJ state: {client_state}")
+        # Insurance is available in NJ and NY
+        if payment_type == "insurance" and client_state not in ["NJ", "NY"]:
+            logger.warning(f"⚠️ Insurance requested for unsupported state: {client_state}")
             return (
                 jsonify(
                     {
-                        "error": "Insurance matching is currently only available in New Jersey",
+                        "error": "Insurance matching is currently only available in New Jersey and New York",
                         "client_state": client_state,
                         "therapists": [],
                     }
