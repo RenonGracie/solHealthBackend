@@ -31,34 +31,38 @@ def get_progressive_logger():
 def log_nirvana_response_immediately(response_id: str, user_data: Dict[str, Any]) -> bool:
     """
     Stage 0: Log immediately after Nirvana 200 response
-    
+
     This is the truly progressive first stage - logs as soon as we get
     insurance verification data from Nirvana.
-    
+
     Args:
         response_id: The user's response ID
         user_data: Dictionary containing survey data + Nirvana response
-        
+
     Returns:
         bool: True if logging successful
     """
     logger.info(f"📊 [IMMEDIATE] Logging Nirvana response for {response_id}")
-    
+
     try:
         # Ensure response_id is in the data
         user_data["response_id"] = response_id
-        
+
+        # CRITICAL FIX: Store Nirvana data for later stages to access
+        logger.info(f"💾 [IMMEDIATE] Storing Nirvana data in data store for {response_id}")
+        store_user_data(response_id, user_data)
+
         # Log to Stage 0 (immediate Nirvana)
         progressive_logger = get_progressive_logger()
         success = progressive_logger.log_stage_0_nirvana_response(user_data)
-        
+
         if success:
             logger.info(f"✅ [IMMEDIATE] Successfully logged Nirvana data for {response_id}")
         else:
             logger.error(f"❌ [IMMEDIATE] Failed to log Nirvana data for {response_id}")
-            
+
         return success
-        
+
     except Exception as e:
         logger.error(f"❌ [IMMEDIATE] Exception logging Nirvana response: {e}")
         return False
@@ -114,15 +118,29 @@ def log_to_google_sheets_progressive(response_id: str, stage: int = 1, data: Opt
 
 def ensure_user_data_initialized(response_id: str, initial_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Ensure user data is initialized (legacy compatibility)
-    
-    In the new progressive system, this is handled by Stage 0 logging.
+    Ensure user data is initialized and merge with any existing data
+
+    In the progressive system, Stage 0 (Nirvana) may have already stored data.
+    This function merges new data with existing data, preserving Nirvana fields.
     """
     logger.info(f"📋 Ensuring user data initialized for {response_id}")
-    
-    # In the progressive system, this is essentially Stage 0 logging
-    # But we'll provide the data as-is for compatibility
-    return initial_data
+
+    # Get any existing data (may include Nirvana data from Stage 0)
+    existing_data = get_user_data(response_id)
+
+    # Merge initial_data into existing_data (preserving existing Nirvana data)
+    # New fields from initial_data will be added, but won't overwrite existing fields
+    merged_data = {**existing_data, **initial_data}
+
+    # Ensure response_id is set
+    merged_data["response_id"] = response_id
+
+    # Store the merged data
+    store_user_data(response_id, merged_data)
+
+    logger.info(f"📋 Merged data now has {len(merged_data)} fields (was {len(existing_data)}, added {len(initial_data)})")
+
+    return merged_data
 
 def update_intakeq_creation_result(response_id: str, intakeq_result: Dict[str, Any]) -> Dict[str, Any]:
     """
