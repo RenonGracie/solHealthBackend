@@ -162,28 +162,32 @@ def create_client_signup():
         # Track journey start if this is a new user
         # is_new_user = existing_response is None  # Removed unused variable
 
-        # Prepare PHQ-9 responses
+        # Prepare PHQ-9 responses - check both flat fields and nested structure
+        # Frontend may send as flat fields OR as nested phq9_responses object
+        phq9_responses_nested = data.get("phq9_responses") or data.get("phq9Responses") or {}
         phq9_responses = {
-            "pleasure_doing_things": data.get("pleasure_doing_things"),
-            "feeling_down": data.get("feeling_down"),
-            "trouble_falling": data.get("trouble_falling"),
-            "feeling_tired": data.get("feeling_tired"),
-            "poor_appetite": data.get("poor_appetite"),
-            "feeling_bad_about_yourself": data.get("feeling_bad_about_yourself"),
-            "trouble_concentrating": data.get("trouble_concentrating"),
-            "moving_or_speaking_so_slowly": data.get("moving_or_speaking_so_slowly"),
-            "suicidal_thoughts": data.get("suicidal_thoughts"),
+            "pleasure_doing_things": data.get("pleasure_doing_things") or phq9_responses_nested.get("pleasure_doing_things") or phq9_responses_nested.get("pleasureDoingThings"),
+            "feeling_down": data.get("feeling_down") or phq9_responses_nested.get("feeling_down") or phq9_responses_nested.get("feelingDown"),
+            "trouble_falling": data.get("trouble_falling") or phq9_responses_nested.get("trouble_falling") or phq9_responses_nested.get("troubleFalling"),
+            "feeling_tired": data.get("feeling_tired") or phq9_responses_nested.get("feeling_tired") or phq9_responses_nested.get("feelingTired"),
+            "poor_appetite": data.get("poor_appetite") or phq9_responses_nested.get("poor_appetite") or phq9_responses_nested.get("poorAppetite"),
+            "feeling_bad_about_yourself": data.get("feeling_bad_about_yourself") or phq9_responses_nested.get("feeling_bad_about_yourself") or phq9_responses_nested.get("feelingBadAboutYourself"),
+            "trouble_concentrating": data.get("trouble_concentrating") or phq9_responses_nested.get("trouble_concentrating") or phq9_responses_nested.get("troubleConcentrating"),
+            "moving_or_speaking_so_slowly": data.get("moving_or_speaking_so_slowly") or phq9_responses_nested.get("moving_or_speaking_so_slowly") or phq9_responses_nested.get("movingOrSpeakingSoSlowly"),
+            "suicidal_thoughts": data.get("suicidal_thoughts") or phq9_responses_nested.get("suicidal_thoughts") or phq9_responses_nested.get("suicidalThoughts"),
         }
 
-        # Prepare GAD-7 responses
+        # Prepare GAD-7 responses - check both flat fields and nested structure
+        # Frontend may send as flat fields OR as nested gad7_responses object
+        gad7_responses_nested = data.get("gad7_responses") or data.get("gad7Responses") or {}
         gad7_responses = {
-            "feeling_nervous": data.get("feeling_nervous"),
-            "not_control_worrying": data.get("not_control_worrying"),
-            "worrying_too_much": data.get("worrying_too_much"),
-            "trouble_relaxing": data.get("trouble_relaxing"),
-            "being_so_restless": data.get("being_so_restless"),
-            "easily_annoyed": data.get("easily_annoyed"),
-            "feeling_afraid": data.get("feeling_afraid"),
+            "feeling_nervous": data.get("feeling_nervous") or gad7_responses_nested.get("feeling_nervous") or gad7_responses_nested.get("feelingNervous"),
+            "not_control_worrying": data.get("not_control_worrying") or gad7_responses_nested.get("not_control_worrying") or gad7_responses_nested.get("notControlWorrying"),
+            "worrying_too_much": data.get("worrying_too_much") or gad7_responses_nested.get("worrying_too_much") or gad7_responses_nested.get("worryingTooMuch"),
+            "trouble_relaxing": data.get("trouble_relaxing") or gad7_responses_nested.get("trouble_relaxing") or gad7_responses_nested.get("troubleRelaxing"),
+            "being_so_restless": data.get("being_so_restless") or gad7_responses_nested.get("being_so_restless") or gad7_responses_nested.get("beingSoRestless"),
+            "easily_annoyed": data.get("easily_annoyed") or gad7_responses_nested.get("easily_annoyed") or gad7_responses_nested.get("easilyAnnoyed"),
+            "feeling_afraid": data.get("feeling_afraid") or gad7_responses_nested.get("feeling_afraid") or gad7_responses_nested.get("feelingAfraid"),
         }
 
         # Calculate PHQ-9 and GAD-7 scores
@@ -404,6 +408,28 @@ def create_client_signup():
 
             # Prepare comprehensive data for Google Sheets
             comprehensive_data = mapped_data.copy()
+
+            # DEBUG: Verify PHQ-9 and GAD-7 data structure before logging
+            logger.info("=" * 80)
+            logger.info("🔍 [PHQ-9/GAD-7 DEBUG] Checking data structure for Google Sheets:")
+            logger.info(f"  📋 PHQ-9 responses dict: {phq9_responses}")
+            logger.info(f"  ✓ PHQ-9 has populated values: {any(v is not None and v != '' for v in phq9_responses.values())}")
+            logger.info(f"  📊 PHQ-9 total score: {phq9_total}")
+            logger.info(f"  📋 GAD-7 responses dict: {gad7_responses}")
+            logger.info(f"  ✓ GAD-7 has populated values: {any(v is not None and v != '' for v in gad7_responses.values())}")
+            logger.info(f"  📊 GAD-7 total score: {gad7_total}")
+
+            # Check if frontend sent nested structure
+            if "phq9_responses" in data or "phq9Responses" in data:
+                logger.info(f"  🎯 Found nested phq9_responses in data: {data.get('phq9_responses') or data.get('phq9Responses')}")
+            if "gad7_responses" in data or "gad7Responses" in data:
+                logger.info(f"  🎯 Found nested gad7_responses in data: {data.get('gad7_responses') or data.get('gad7Responses')}")
+
+            # List relevant keys from original data
+            relevant_keys = [k for k in data.keys() if any(x in k.lower() for x in ['phq', 'gad', 'pleasure', 'feeling', 'nervous', 'worry'])]
+            if relevant_keys:
+                logger.info(f"  🔑 Assessment-related keys in data: {relevant_keys}")
+            logger.info("=" * 80)
 
             # Add PHQ-9 and GAD-7 scores in the format expected by comprehensive logger
             if phq9_responses:

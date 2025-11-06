@@ -2,10 +2,10 @@
 Progressive Google Sheets Logger for Sol Health
 
 Handles 4-stage progressive logging throughout the user journey:
-0. Stage 0: Immediate Nirvana response logging (NEW - truly progressive)
-1. Stage 1: After survey completion + therapist match + IntakeQ creation  
-2. Stage 2: After therapist confirmation
-3. Stage 3: After booking completion (comprehensive final data)
+1. Stage 1: Email capture (partial submission before survey)
+2. Stage 2: Survey completion (PHQ-9, GAD-7, preferences - before matching)
+3. Stage 3: Therapist matching (algorithm suggestions, matched therapist)
+4. Stage 4: Booking completion (appointment details, IntakeQ integration)
 
 Consolidates functionality from:
 - google_sheets.py (comprehensive field mapping)
@@ -39,7 +39,7 @@ class GoogleSheetsProgressiveLogger:
     """
     Progressive logging service for comprehensive user journey tracking.
 
-    Updates a single row per user across 3 stages of their journey.
+    Updates a single row per user across 4 stages of their journey.
     """
 
     def __init__(self):
@@ -142,10 +142,11 @@ class GoogleSheetsProgressiveLogger:
         return [
             # Journey Tracking
             "journey_id",
-            "stage_completed",  # "1", "2", or "3"
+            "stage_completed",  # "1", "2", "3", or "4"
             "stage_1_timestamp",
             "stage_2_timestamp",
             "stage_3_timestamp",
+            "stage_4_timestamp",
             "last_updated",
             # Basic User Information (11)
             "response_id",
@@ -466,7 +467,7 @@ class GoogleSheetsProgressiveLogger:
             journey_tracking_data.update(stage_1_data)
 
         if stage >= 2:
-            # NEW Stage 2: Survey completion + therapist match (with optional Nirvana for insurance users)
+            # Stage 2: Survey completion ONLY (before matching)
             stage_2_data = {
                 # Basic User Information
                 "response_id": safe_get(data, "response_id"),
@@ -615,12 +616,6 @@ class GoogleSheetsProgressiveLogger:
                 "nirvana_policyholder_zip_code": safe_get(data, "nirvana_data", "subscriber_demographics", "address", "zip"),
                 "nirvana_policyholder_date_of_birth": safe_get(data, "nirvana_data", "subscriber_demographics", "dob"),
                 "nirvana_policyholder_sex": safe_get(data, "nirvana_data", "subscriber_demographics", "gender"),
-                # Matched Therapist (if available)
-                "matched_therapist_id": safe_get(data, "matched_therapist_id"),
-                "matched_therapist_name": safe_get(data, "matched_therapist_name"),
-                "matched_therapist_email": safe_get(data, "matched_therapist_email"),
-                "match_score": safe_get(data, "match_score"),
-                "matched_specialties": safe_get(data, "matched_specialties"),
                 # Additional Context
                 "safety_screening": safe_get(data, "safety_screening"),
                 "matching_preference": safe_get(data, "matching_preference"),
@@ -648,12 +643,6 @@ class GoogleSheetsProgressiveLogger:
                 # Nirvana verification (optional - only for insurance users)
                 "nirvana_verification_timestamp": safe_get(data, "nirvana_verification_timestamp") or (now if safe_get(data, "nirvana_data") else ""),
                 "nirvana_verification_status": "SUCCESS" if safe_get(data, "nirvana_data") else ("SKIPPED" if safe_get(data, "payment_type") == "cash_pay" else ""),
-                # Algorithm suggested therapist (from matching algorithm)
-                "algorithm_suggested_therapist_id": safe_get(data, "algorithm_suggested_therapist_id"),
-                "algorithm_suggested_therapist_name": safe_get(data, "algorithm_suggested_therapist_name"),
-                "algorithm_suggested_therapist_score": safe_get(data, "algorithm_suggested_therapist_score"),
-                "alternative_therapists_count": safe_get(data, "alternative_therapists_count"),
-                "alternative_therapists_names": safe_get(data, "alternative_therapists_names"),
                 # Technical metadata
                 "screen_resolution": safe_get(data, "screen_resolution"),
                 "browser_timezone": safe_get(data, "browser_timezone"),

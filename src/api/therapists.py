@@ -53,28 +53,40 @@ therapists_bp = Blueprint("therapists", __name__)
 # Default Sol Health Welcome Video
 DEFAULT_WELCOME_VIDEO = "https://www.youtube.com/watch?v=OtNM4rS20Ts"
 
-# Canonical topics for specialty matching
+# Canonical topics for specialty matching (26 items organized in 4 categories)
 CANONICAL_TOPICS = {
+    # Emotional Well-Being
     "adhd": "ADHD",
     "anxiety": "Anxiety",
-    "body image": "Body image",
-    "building confidence": "Building confidence",
-    "career/academic stress": "Career/academic stress",
     "depression": "Depression",
-    "eating disorders": "Eating disorders",
     "emotional regulation": "Emotional regulation",
-    "family life": "Family life",
-    "grief and loss": "Grief and loss",
-    "lgbtq+ identity": "LGBTQ+ identity",
-    "life transitions": "Life transitions",
-    "loneliness": "Loneliness",
-    "ocd": "OCD",
     "panic attacks": "Panic attacks",
-    "phobias": "Phobias",
-    "ptsd": "PTSD",
-    "relationship challenges": "Relationship challenges",
-    "stress and burnout": "Stress and burnout",
-    "trauma": "Trauma",
+    "stress & burnout": "Stress & burnout",
+    "sleep or insomnia": "Sleep or insomnia",
+
+    # Relationships & Identity
+    "dating & relationships": "Dating & relationships",
+    "breakups": "Breakups",
+    "family life": "Family life",
+    "life transitions": "Life transitions",
+    "lgbtq+ identity": "LGBTQ+ identity",
+    "loneliness": "Loneliness",
+    "building confidence": "Building confidence",
+
+    # Body & Mind Connection
+    "body image": "Body image",
+    "eating disorders": "Eating disorders",
+    "chronic pain or illness": "Chronic pain or illness",
+    "mindfulness, somatic-based, nervous system regulation": "Mindfulness, somatic-based, nervous system regulation",
+
+    # Life Challenges & Growth
+    "financial stress": "Financial stress",
+    "gambling": "Gambling",
+    "substance use": "Substance use",
+    "grief & loss": "Grief & loss",
+    "trauma or ptsd": "Trauma or PTSD",
+    "pregnancy & postpartum": "Pregnancy & postpartum",
+    "sports & athletics": "Sports & athletics",
 }
 
 
@@ -88,47 +100,73 @@ def normalize_topic(raw: str) -> Optional[str]:
     if s in CANONICAL_TOPICS:
         return CANONICAL_TOPICS[s]
 
+    # Backward compatibility for old topic names
+    if s in ["stress and burnout", "grief and loss"]:
+        if "grief" in s:
+            return CANONICAL_TOPICS["grief & loss"]
+        return CANONICAL_TOPICS["stress & burnout"]
+    if s in ["relationship challenges", "dating and relationships"]:
+        return CANONICAL_TOPICS["dating & relationships"]
+    if s in ["ptsd", "trauma"]:
+        return CANONICAL_TOPICS["trauma or ptsd"]
+
     # Common synonyms/contains matching
-    if "adhd" in s:
+    if "adhd" in s or "attention deficit" in s:
         return CANONICAL_TOPICS["adhd"]
-    if "anxiety" in s and "panic" not in s and "phobia" not in s:
+    if "anxiety" in s and "panic" not in s:
         return CANONICAL_TOPICS["anxiety"]
     if "panic" in s:
         return CANONICAL_TOPICS["panic attacks"]
-    if "phobia" in s:
-        return CANONICAL_TOPICS["phobias"]
-    if "body image" in s or "body-image" in s:
-        return CANONICAL_TOPICS["body image"]
-    if "confidence" in s:
-        return CANONICAL_TOPICS["building confidence"]
-    if "career" in s or "academic" in s or "school" in s:
-        return CANONICAL_TOPICS["career/academic stress"]
     if "depress" in s:
         return CANONICAL_TOPICS["depression"]
-    if "eating" in s and ("disorder" in s or "food" in s):
-        return CANONICAL_TOPICS["eating disorders"]
-    if "emotional regulation" in s or ("emotion" in s and "regulation" in s):
+    if "emotional regulation" in s or ("emotion" in s and "regulat" in s):
         return CANONICAL_TOPICS["emotional regulation"]
+    if "stress" in s or "burnout" in s:
+        return CANONICAL_TOPICS["stress & burnout"]
+    if "sleep" in s or "insomnia" in s:
+        return CANONICAL_TOPICS["sleep or insomnia"]
+
+    # Relationships & Identity
+    if "dating" in s or ("relationship" in s and "breakup" not in s):
+        return CANONICAL_TOPICS["dating & relationships"]
+    if "breakup" in s or "break-up" in s or "break up" in s:
+        return CANONICAL_TOPICS["breakups"]
     if "family" in s:
         return CANONICAL_TOPICS["family life"]
-    if "grief" in s or "loss" in s:
-        return CANONICAL_TOPICS["grief and loss"]
-    if "lgbt" in s:
-        return CANONICAL_TOPICS["lgbtq+ identity"]
-    if "transition" in s:
+    if "transition" in s and "life" not in s:
         return CANONICAL_TOPICS["life transitions"]
-    if "loneliness" in s or "lonely" in s:
+    if "lgbt" in s or "queer" in s:
+        return CANONICAL_TOPICS["lgbtq+ identity"]
+    if "loneliness" in s or "lonely" in s or "isolation" in s:
         return CANONICAL_TOPICS["loneliness"]
-    if "ocd" in s or "obsessive" in s:
-        return CANONICAL_TOPICS["ocd"]
-    if "ptsd" in s or ("post" in s and "trauma" in s):
-        return CANONICAL_TOPICS["ptsd"]
-    if "relationship" in s:
-        return CANONICAL_TOPICS["relationship challenges"]
-    if "stress" in s or "burnout" in s:
-        return CANONICAL_TOPICS["stress and burnout"]
-    if "trauma" in s:
-        return CANONICAL_TOPICS["trauma"]
+    if "confidence" in s or "self-esteem" in s:
+        return CANONICAL_TOPICS["building confidence"]
+
+    # Body & Mind Connection
+    if "body image" in s or "body-image" in s:
+        return CANONICAL_TOPICS["body image"]
+    if "eating" in s and ("disorder" in s or "food" in s or "anorexia" in s or "bulimia" in s):
+        return CANONICAL_TOPICS["eating disorders"]
+    if "chronic pain" in s or ("pain" in s and "chronic" in s) or "chronic illness" in s:
+        return CANONICAL_TOPICS["chronic pain or illness"]
+    if "mindfulness" in s or "somatic" in s or "nervous system" in s:
+        return CANONICAL_TOPICS["mindfulness, somatic-based, nervous system regulation"]
+
+    # Life Challenges & Growth
+    if "financial" in s or "money" in s or ("economic" in s and "stress" in s):
+        return CANONICAL_TOPICS["financial stress"]
+    if "gambling" in s or "gaming addiction" in s:
+        return CANONICAL_TOPICS["gambling"]
+    if "substance" in s or "addiction" in s or "alcohol" in s or "drug" in s:
+        return CANONICAL_TOPICS["substance use"]
+    if "grief" in s or "loss" in s or "bereavement" in s:
+        return CANONICAL_TOPICS["grief & loss"]
+    if "trauma" in s or "ptsd" in s or ("post" in s and "traumatic" in s):
+        return CANONICAL_TOPICS["trauma or ptsd"]
+    if "pregnancy" in s or "postpartum" in s or "prenatal" in s or "perinatal" in s:
+        return CANONICAL_TOPICS["pregnancy & postpartum"]
+    if "sport" in s or "athlete" in s or "athletics" in s:
+        return CANONICAL_TOPICS["sports & athletics"]
 
     return None
 
