@@ -431,8 +431,9 @@ class GoogleSheetsProgressiveLogger:
         headers = self._get_comprehensive_headers()
         row_data = [""] * len(headers)  # Initialize with empty strings
 
-        # Always update these fields
+        # Always update these fields at every stage
         journey_tracking_data = {
+            "response_id": safe_get(data, "response_id"),  # Always include response_id for row lookup
             "stage_completed": str(stage),
             "last_updated": now,
             f"stage_{stage}_timestamp": now,
@@ -466,8 +467,8 @@ class GoogleSheetsProgressiveLogger:
             }
             journey_tracking_data.update(stage_1_data)
 
-        if stage >= 2:
-            # Stage 2: Survey completion ONLY (before matching)
+        if stage == 2:
+            # Stage 2: Survey completion ONLY (updates Stage 2 specific fields only)
             stage_2_data = {
                 # Basic User Information
                 "response_id": safe_get(data, "response_id"),
@@ -650,8 +651,8 @@ class GoogleSheetsProgressiveLogger:
             }
             journey_tracking_data.update(stage_2_data)
 
-        if stage >= 3:
-            # NEW Stage 3: Booking completion (with therapist selection tracking)
+        if stage == 3:
+            # Stage 3: Booking completion ONLY (updates Stage 3 specific fields only)
             stage_3_data = {
                 # Selected therapist (what user chose to book - may differ from suggested)
                 "selected_therapist_id": safe_get(data, "selected_therapist_id"),
@@ -787,19 +788,35 @@ class GoogleSheetsProgressiveLogger:
                 
                 # Merge: keep existing non-empty values, add new non-empty values
                 merged_data = []
+                headers = self._get_comprehensive_headers()
+                phq_gad_fields_preserved = 0
+                phq_gad_fields_overwritten = 0
+
                 for i, new_value in enumerate(row_data):
                     existing_value = current_values[i] if i < len(current_values) else ""
-                    
+                    field_name = headers[i] if i < len(headers) else f"field_{i}"
+
+                    # Track PHQ-9/GAD-7 field changes for debugging
+                    is_assessment_field = any(x in field_name for x in ['phq9_', 'gad7_'])
+
                     # Preserve existing data unless new data is explicitly provided
                     if existing_value and not new_value:
                         # Keep existing value if new is empty
                         merged_data.append(existing_value)
+                        if is_assessment_field and existing_value:
+                            phq_gad_fields_preserved += 1
                     elif new_value:
                         # Use new value if provided
                         merged_data.append(new_value)
+                        if is_assessment_field and existing_value and existing_value != new_value:
+                            phq_gad_fields_overwritten += 1
+                            logger.warning(f"  ⚠️ Overwriting {field_name}: '{existing_value}' -> '{new_value}'")
                     else:
                         # Both empty, keep empty
                         merged_data.append("")
+
+                if phq_gad_fields_preserved > 0 or phq_gad_fields_overwritten > 0:
+                    logger.info(f"  🔍 PHQ-9/GAD-7 fields: {phq_gad_fields_preserved} preserved, {phq_gad_fields_overwritten} overwritten")
                 
                 # Log what's being preserved vs updated
                 non_empty_preserved = sum(1 for i, val in enumerate(merged_data) if val and (i >= len(current_values) or not current_values[i]))

@@ -1405,41 +1405,19 @@ def get_therapist_match():
 
         MatchingLogger.log_match_results(matched_therapists)
 
-        # Log to Google Sheets - comprehensive logging with matching results
+        # Log matched therapist data to Google Sheets - Update Stage 2 with therapist match info
         try:
-            # Prepare comprehensive data including matching results
-            comprehensive_data = client_data.copy()
+            # Prepare data with matching results to update existing Stage 2 row
+            match_update_data = {
+                "response_id": response_id,
+                "matching_completed_at": datetime.utcnow().isoformat(),
+            }
 
-            # Add matching results
-            if matched_therapists:
-                top_match = matched_therapists[0]
-                comprehensive_data.update(
-                    {
-                        "matched_therapist_id": top_match["therapist"].get("id"),
-                        "matched_therapist_name": top_match["therapist"].get("name"),
-                        "matched_therapist_email": top_match["therapist"]["email"],
-                        "match_score": top_match["score"],
-                        "therapists_matched_count": len(matched_therapists),
-                    }
-                )
-
-            # Add matching metadata
-            comprehensive_data.update(
-                {
-                    "matching_completed_at": datetime.utcnow().isoformat(),
-                    "specialties_requested": client_data.get(
-                        "therapist_specializes_in", []
-                    ),
-                    "client_state": client_state,
-                    "payment_type": payment_type,
-                }
-            )
-
-            # Add matched therapist data for Stage 1 logging
+            # Add matched therapist data
             if matched_therapists:
                 top_match = matched_therapists[0]
                 therapist_data = top_match.get("therapist", {})
-                comprehensive_data.update(
+                match_update_data.update(
                     {
                         "matched_therapist_id": therapist_data.get("id", ""),
                         "matched_therapist_name": therapist_data.get(
@@ -1453,13 +1431,14 @@ def get_therapist_match():
                     }
                 )
 
-            # Stage 1: Log survey completion + therapist match (async)
+            # Update Stage 2 with matched therapist info (NOT Stage 1)
             from src.services.google_sheets_progressive_logger import progressive_logger
 
-            progressive_logger.async_log_stage_1(comprehensive_data)
+            progressive_logger.async_log_stage_2(match_update_data)
+            logger.info(f"📊 Updated Stage 2 with matched therapist data for {response_id}")
 
         except Exception as e:
-            logger.warning(f"Failed to log to Google Sheets (Stage 1): {e}")
+            logger.warning(f"Failed to update Google Sheets with therapist match: {e}")
 
         # Note: Removed journey_tracker calls - now handled by progressive logger
 
