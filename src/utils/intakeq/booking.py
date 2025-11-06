@@ -418,6 +418,7 @@ def determine_session_id(session_type: str, services: List[Dict[str, Any]]) -> s
 
     # Map session types to service names (customize based on your IntakeQ setup)
     session_mapping = {
+        "First Session (100% Free)": ["First Session (100% Free)", "100% Free", "Completely Free Session"],
         "First Session (Free)": ["First Session (Free)", "Free Session", "Initial Session (Free)"],
         "First Session (Promo Code)": ["First Session (Promo Code)", "Promo Session", "Discounted Session"],
         "First Session": ["First Session", "Initial Session", "Intake Session"],

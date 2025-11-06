@@ -616,6 +616,16 @@ def book_appointment():
             elif client_response.discount == 50:
                 session_type = "First Session (Promo Code)"
 
+        # Check if referred by Graduate Counseling Program or Sad Girls Club (CASH_PAY only)
+        if client_response.payment_type == "cash_pay":
+            referred_by = client_response.referred_by if hasattr(client_response, "referred_by") else None
+            if referred_by:
+                # Handle both string and list types
+                referred_list = referred_by if isinstance(referred_by, list) else [referred_by]
+                if any(ref in ["Sad Girls Club", "Graduate Counseling Program"] for ref in referred_list):
+                    session_type = "First Session (100% Free)"
+                    logger.info(f"🎓 Special referral detected: Setting session to 100% free for referred_by={referred_by}")
+
         # Step 1: Create IntakeQ client profile if not exists
         intakeq_client_id = client_response.intakeq_client_id
         logger.info(f"🔍 DEBUG: Current intakeq_client_id = {intakeq_client_id}")
