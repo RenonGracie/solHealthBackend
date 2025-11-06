@@ -64,11 +64,43 @@ def cleanup_old_logs_job():
 
 
 def init_scheduler(app: Flask):
-    """Initialize the background scheduler."""
+    """Initialize the background scheduler.
+
+    In multi-worker environments (like Gunicorn with 4 workers),
+    we only want ONE worker to run the scheduler to avoid duplicate jobs.
+    """
     global scheduler
 
     if scheduler is not None:
+        logger.info("⏭️ Scheduler already initialized, skipping")
         return  # Already initialized
+
+    # Check if scheduler should be enabled for this worker
+    enable_scheduler = os.getenv("ENABLE_SCHEDULER", "true").lower() == "true"
+
+    if not enable_scheduler:
+        logger.info("⏭️ Scheduler disabled via ENABLE_SCHEDULER env var")
+        return
+
+    # In Gunicorn multi-worker setup, only run scheduler in one worker
+    # We use a simple lock file approach to ensure only one worker starts the scheduler
+    import fcntl
+    import tempfile
+
+    lock_file_path = os.path.join(tempfile.gettempdir(), "sol_health_scheduler.lock")
+
+    try:
+        # Try to acquire an exclusive lock
+        lock_file = open(lock_file_path, 'w')
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        # If we got here, we acquired the lock - this worker should run the scheduler
+        logger.info("🔒 Acquired scheduler lock - this worker will run scheduled jobs")
+
+    except (IOError, OSError):
+        # Another worker already has the lock
+        logger.info("⏭️ Another worker is already running the scheduler, skipping initialization")
+        return
 
     try:
         scheduler = BackgroundScheduler(daemon=True)
@@ -100,7 +132,7 @@ def init_scheduler(app: Flask):
 
         # Start scheduler
         scheduler.start()
-        logger.debug("✅ Background scheduler started successfully")
+        logger.info("✅ Background scheduler started successfully (running in this worker only)")
 
         # Shutdown scheduler when app stops
         import atexit
