@@ -2242,16 +2242,23 @@ def send_mandatory_form():
             intakeq_api_key = os.getenv("CASH_PAY_INTAKEQ_API_KEY")
             mandatory_form_id = os.getenv("CASH_PAY_MANDATORY_FORM_ID")
         else:  # insurance
-            # Get state from data for state-specific API key
+            # Get state from data for state-specific API key AND form ID
             client_state = data.get("state", "")
             from src.utils.intakeq.state_config import get_insurance_intakeq_config
+
+            # Get state-specific API key
             intakeq_api_key = get_insurance_intakeq_config(client_state, 'api_key')
             if not intakeq_api_key:
                 # Fallback to generic insurance key
                 intakeq_api_key = os.getenv("INSURANCE_INTAKEQ_API_KEY")
 
-            # Form ID is shared for both NJ and NY
-            mandatory_form_id = os.getenv("INSURANCE_MANDATORY_FORM_ID")
+            # CRITICAL: Get state-specific mandatory form ID
+            # Each IntakeQ account (NJ/NY) has its own forms
+            mandatory_form_id = get_insurance_intakeq_config(client_state, 'mandatory_form_id')
+            if not mandatory_form_id:
+                # Fallback to generic form ID
+                logger.warning(f"⚠️ No state-specific mandatory form ID for {client_state}, using generic")
+                mandatory_form_id = os.getenv("INSURANCE_MANDATORY_FORM_ID")
 
         if not intakeq_api_key:
             error_msg = f"Missing IntakeQ API key for payment type: {payment_type}"

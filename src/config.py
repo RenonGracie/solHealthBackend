@@ -97,7 +97,9 @@ class Config:
 
     # IntakeQ Form IDs
     CASH_PAY_MANDATORY_FORM_ID: str = os.getenv("CASH_PAY_MANDATORY_FORM_ID", "")
-    INSURANCE_MANDATORY_FORM_ID: str = os.getenv("INSURANCE_MANDATORY_FORM_ID", "")
+    INSURANCE_MANDATORY_FORM_ID: str = os.getenv("INSURANCE_MANDATORY_FORM_ID", "")  # Fallback/generic
+    NJ_INSURANCE_MANDATORY_FORM_ID: str = os.getenv("NJ_INSURANCE_MANDATORY_FORM_ID", "")
+    NY_INSURANCE_MANDATORY_FORM_ID: str = os.getenv("NY_INSURANCE_MANDATORY_FORM_ID", "")
 
     # Insurance Verification
     NIRVANA_API_KEY: str = os.getenv("NIRVANA_API_KEY", "")

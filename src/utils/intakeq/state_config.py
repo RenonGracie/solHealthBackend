@@ -23,6 +23,7 @@ def get_insurance_intakeq_config(state: str, config_type: str) -> str:
             - 'api_key': IntakeQ API key
             - 'username': IntakeQ login username (for Selenium automation)
             - 'password': IntakeQ login password (for Selenium automation)
+            - 'mandatory_form_id': Mandatory form ID for sending intake forms
 
     Returns:
         State-specific configuration value from environment variables
@@ -33,9 +34,10 @@ def get_insurance_intakeq_config(state: str, config_type: str) -> str:
     Examples:
         >>> api_key = get_insurance_intakeq_config('NJ', 'api_key')
         >>> username = get_insurance_intakeq_config('NY', 'username')
+        >>> form_id = get_insurance_intakeq_config('NY', 'mandatory_form_id')
     """
     # Validate config_type
-    valid_types = ['api_key', 'username', 'password']
+    valid_types = ['api_key', 'username', 'password', 'mandatory_form_id']
     if config_type not in valid_types:
         raise ValueError(
             f"Invalid config_type: '{config_type}'. Must be one of {valid_types}"
@@ -65,12 +67,20 @@ def get_insurance_intakeq_config(state: str, config_type: str) -> str:
             'password': os.getenv(
                 "NJ_INSURANCE_INTAKEQ_PAS",
                 os.getenv("INSURANCE_INTAKEQ_PAS", "")
+            ),
+            'mandatory_form_id': os.getenv(
+                "NJ_INSURANCE_MANDATORY_FORM_ID",
+                os.getenv("INSURANCE_MANDATORY_FORM_ID", "")
             )
         },
         'NY': {
             'api_key': os.getenv("NY_INSURANCE_INTAKEQ_API_KEY", ""),
             'username': os.getenv("NY_INSURANCE_INTAKEQ_USR", ""),
-            'password': os.getenv("NY_INSURANCE_INTAKEQ_PAS", "")
+            'password': os.getenv("NY_INSURANCE_INTAKEQ_PAS", ""),
+            'mandatory_form_id': os.getenv(
+                "NY_INSURANCE_MANDATORY_FORM_ID",
+                os.getenv("INSURANCE_MANDATORY_FORM_ID", "")
+            )
         }
     }
 

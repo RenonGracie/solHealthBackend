@@ -224,6 +224,11 @@ class ComprehensiveDataLogger:
                                 if nirvana_addr_field not in extracted_data:
                                     extracted_data[nirvana_addr_field] = value
                                     extracted_data["_fields_extracted"] += 1
+
+                                # Also extract to top-level if not present (e.g., country)
+                                if addr_field not in extracted_data and value:
+                                    extracted_data[addr_field] = value
+                                    extracted_data["_fields_extracted"] += 1
                     
                     # Extract from subscriber_demographics section
                     subscriber_demo = nirvana_data.get("subscriber_demographics", {})
@@ -264,8 +269,10 @@ class ComprehensiveDataLogger:
                                 extracted_data[telehealth_field] = value
                                 extracted_data["_fields_extracted"] += 1
                 
-                # Store raw Nirvana data for reference
+                # CRITICAL: Store raw Nirvana data for reference AND as nirvana_data
+                # Google Sheets logger expects nested structure at data["nirvana_data"]
                 extracted_data["nirvana_raw_data"] = nirvana_data
+                extracted_data["nirvana_data"] = nirvana_data  # Preserve nested structure
                 break  # Use first available Nirvana source
         
         # 3. Extract from nested client_data, survey_data, etc.
