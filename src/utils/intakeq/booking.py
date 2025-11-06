@@ -92,6 +92,7 @@ def book_appointment_with_intakeq(
     intakeq_client_id: Optional[str] = None,
     google_meets_link: Optional[str] = None,
     client_timezone: Optional[str] = None,
+    client_state: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Complete appointment booking workflow following documentation pattern
@@ -118,6 +119,8 @@ def book_appointment_with_intakeq(
         status (str): Appointment status ('Confirmed' or 'AwaitingConfirmation')
         intakeq_client_id (str, optional): If provided, skip client search and use this ID
         google_meets_link (str, optional): Google Meets link to include in appointment
+        client_timezone (str, optional): Client timezone for associate therapists
+        client_state (str, optional): Client state ('NJ' or 'NY') - required for insurance to use correct API key
         
     Returns:
         dict: Appointment creation result with IntakeQ data
@@ -127,14 +130,16 @@ def book_appointment_with_intakeq(
     logger.info(f"  Client: {client_name} ({client_email})")
     logger.info(f"  Therapist: {therapist_name} ({therapist_email})")
     logger.info(f"  DateTime: {appointment_datetime.isoformat()}")
+    logger.info(f"  Payment Type: {payment_type}")
+    logger.info(f"  Client State: {client_state}")
     logger.info(f"  Session Type: {session_type}")
     logger.info("=" * 60)
-    
+
     try:
         # Step 1: Get Booking Settings
         logger.info("🔄 Step 1: Getting IntakeQ booking settings...")
-        logger.info(f"🔑 Using payment type: {payment_type}")
-        settings_response = get_booking_settings(payment_type)
+        logger.info(f"🔑 Using payment type: {payment_type}, state: {client_state}")
+        settings_response = get_booking_settings(payment_type, state=client_state)
         
         if not settings_response.ok:
             error_msg = f"Failed to get booking settings: {settings_response.status_code} - {settings_response.text}"
@@ -206,7 +211,7 @@ def book_appointment_with_intakeq(
         
         # Step 4: Availability Check (temporarily relaxed for testing)
         logger.info("🔄 Step 4: Checking therapist availability...")
-        availability_result = check_intakeq_availability(therapist_email, appointment_datetime, payment_type)
+        availability_result = check_intakeq_availability(therapist_email, appointment_datetime, payment_type, client_state)
         if not availability_result:
             logger.warning(f"⚠️ Availability check failed but proceeding with booking for testing: {appointment_datetime}")
             # Temporarily allow booking even if availability check fails
@@ -306,8 +311,8 @@ def book_appointment_with_intakeq(
             logger.info("✅ Timestamp validation passed - IntakeQ will receive correct time")
         
         logger.info(f"🔍 Final appointment data: {appointment_data}")
-        
-        appointment_response = create_appointment(appointment_data, payment_type)
+
+        appointment_response = create_appointment(appointment_data, payment_type, state=client_state)
         
         if not appointment_response.ok:
             error_msg = f"Failed to create appointment: {appointment_response.status_code} - {appointment_response.text}"
@@ -345,19 +350,20 @@ def book_appointment_with_intakeq(
         return {"success": False, "error": str(e)}
 
 
-def check_intakeq_availability(therapist_email: str, appointment_datetime: datetime, payment_type: str = "cash_pay") -> bool:
+def check_intakeq_availability(therapist_email: str, appointment_datetime: datetime, payment_type: str = "cash_pay", client_state: Optional[str] = None) -> bool:
     """
     Check therapist availability in IntakeQ system
-    
+
     Args:
         therapist_email (str): Therapist email
         appointment_datetime (datetime): Requested appointment time
         payment_type (str): 'cash_pay' or 'insurance' - determines which IntakeQ account to check
-        
+        client_state (str, optional): Client state ('NJ' or 'NY') - required for insurance to use correct API key
+
     Returns:
         bool: True if available, False otherwise
     """
-    logger.info(f"🔍 Checking IntakeQ availability for {therapist_email} at {appointment_datetime} ({payment_type})")
+    logger.info(f"🔍 Checking IntakeQ availability for {therapist_email} at {appointment_datetime} (payment_type={payment_type}, state={client_state})")
     
     try:
         # Check for conflicts within ±2 hours of requested time
@@ -369,8 +375,8 @@ def check_intakeq_availability(therapist_email: str, appointment_datetime: datet
             "startDate": start_check.strftime("%Y-%m-%d"),
             "endDate": end_check.strftime("%Y-%m-%d")
         }
-        
-        response = search_appointments(search_params, payment_type)
+
+        response = search_appointments(search_params, payment_type, state=client_state)
         
         if not response.ok:
             logger.warning(f"⚠️ Could not check availability: {response.status_code} - {response.text}")
@@ -416,7 +422,18 @@ def determine_session_id(session_type: str, services: List[Dict[str, Any]]) -> s
     """
     logger.info(f"🔍 Determining session ID for: {session_type}")
 
-    # Map session types to service names (customize based on your IntakeQ setup)
+    # Hardcoded service IDs (priority over name matching)
+    hardcoded_service_ids = {
+        "First Session (100% Free)": "b1f693b4-d7c0-4318-95f0-c7eb8ad75b28",
+    }
+
+    # Check if we have a hardcoded service ID for this session type
+    if session_type in hardcoded_service_ids:
+        hardcoded_id = hardcoded_service_ids[session_type]
+        logger.info(f"✅ Using hardcoded service ID for '{session_type}': {hardcoded_id}")
+        return hardcoded_id
+
+    # Map session types to service names for dynamic matching (fallback)
     session_mapping = {
         "First Session (100% Free)": ["First Session (100% Free)", "100% Free", "Completely Free Session"],
         "First Session (Free)": ["First Session (Free)", "Free Session", "Initial Session (Free)"],

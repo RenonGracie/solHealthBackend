@@ -810,6 +810,7 @@ Payment Type: {client_response.payment_type}
                 intakeq_client_id=intakeq_client_id,  # Pass the client ID we just created
                 google_meets_link=google_meets_link,  # Pass the Google Meets link for email inclusion
                 client_timezone=email_timezone,  # Pass client timezone only for associate therapists
+                client_state=client_response.state,  # Pass client state for state-specific API key selection
             )
         except TimeoutError:
             logger.error("❌ IntakeQ booking timed out after 25 seconds")
