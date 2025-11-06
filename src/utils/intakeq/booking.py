@@ -146,7 +146,14 @@ def book_appointment_with_intakeq(
         services = settings_data.get("Services", [])
         
         logger.info(f"✅ Found {len(practitioners)} practitioners, {len(services)} services")
-        
+
+        # Debug: Log all available services
+        logger.info("📋 Available services in IntakeQ:")
+        for i, service in enumerate(services):
+            logger.info(f"  {i+1}. Name: {service.get('Name', 'N/A')}")
+            logger.info(f"     ID: {service.get('Id', 'N/A')}")
+            logger.info(f"     Duration: {service.get('Duration', 'N/A')} minutes")
+
         # Debug: Log all available practitioners
         logger.info("📋 Available practitioners in IntakeQ:")
         for i, practitioner in enumerate(practitioners):
@@ -408,7 +415,7 @@ def determine_session_id(session_type: str, services: List[Dict[str, Any]]) -> s
         str: Service ID for the session
     """
     logger.info(f"🔍 Determining session ID for: {session_type}")
-    
+
     # Map session types to service names (customize based on your IntakeQ setup)
     session_mapping = {
         "First Session (Free)": ["First Session (Free)", "Free Session", "Initial Session (Free)"],
@@ -417,19 +424,24 @@ def determine_session_id(session_type: str, services: List[Dict[str, Any]]) -> s
         "Follow-up Session": ["Follow-up Session", "Regular Session", "Therapy Session"],
         "Insurance Session": ["Insurance Session", "Covered Session"]
     }
-    
+
     # Get possible service names for this session type
     possible_names = session_mapping.get(session_type, [session_type])
-    
+    logger.info(f"🔍 Searching for services matching any of: {possible_names}")
+
     # Find matching service in IntakeQ services
+    logger.info(f"🔍 Comparing against {len(services)} available services...")
     for service in services:
         service_name = service.get("Name", "")
         service_id = service.get("Id", "")
-        
+        logger.info(f"  Checking service: '{service_name}' ({service_id})")
+
         for possible_name in possible_names:
             if possible_name.lower() in service_name.lower():
                 logger.info(f"✅ Found matching service: {service_name} ({service_id})")
                 return service_id
+
+    logger.warning(f"⚠️ No matching service found for '{session_type}'")
     
     # Fallback: return session_type as-is or first available service
     if services:
