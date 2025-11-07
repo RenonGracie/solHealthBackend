@@ -52,14 +52,14 @@ def log_nirvana_response_immediately(response_id: str, user_data: Dict[str, Any]
         logger.info(f"💾 [IMMEDIATE] Storing Nirvana data in data store for {response_id}")
         store_user_data(response_id, user_data)
 
-        # Log to Stage 0 (immediate Nirvana)
+        # Log to Google Sheets immediately (Stage 2 includes Nirvana insurance demographics)
         progressive_logger = get_progressive_logger()
-        success = progressive_logger.log_stage_0_nirvana_response(user_data)
+        success = progressive_logger.log_stage_2_survey_complete(user_data)
 
         if success:
-            logger.info(f"✅ [IMMEDIATE] Successfully logged Nirvana data for {response_id}")
+            logger.info(f"✅ [IMMEDIATE] Successfully logged Nirvana insurance demographics to Google Sheets for {response_id}")
         else:
-            logger.error(f"❌ [IMMEDIATE] Failed to log Nirvana data for {response_id}")
+            logger.error(f"❌ [IMMEDIATE] Failed to log Nirvana data to Google Sheets for {response_id}")
 
         return success
 

@@ -200,16 +200,29 @@ def check_intakeq_forms_env():
         return jsonify({"error": "Admin endpoints disabled in production"}), 403
         
     cash_pay_form_id = os.getenv("CASH_PAY_MANDATORY_FORM_ID")
-    insurance_form_id = os.getenv("INSURANCE_MANDATORY_FORM_ID")
-    
+    insurance_form_id = os.getenv("INSURANCE_MANDATORY_FORM_ID")  # Generic fallback
+    nj_insurance_form_id = os.getenv("NJ_INSURANCE_MANDATORY_FORM_ID")
+    ny_insurance_form_id = os.getenv("NY_INSURANCE_MANDATORY_FORM_ID")
+
     return jsonify({
         "cash_pay_form_id": {
             "present": bool(cash_pay_form_id),
             "value": cash_pay_form_id or "Not set"
         },
         "insurance_form_id": {
-            "present": bool(insurance_form_id), 
-            "value": insurance_form_id or "Not set"
+            "present": bool(insurance_form_id),
+            "value": insurance_form_id or "Not set",
+            "note": "Generic fallback - prefer state-specific IDs below"
         },
-        "ready_for_mandatory_forms": bool(cash_pay_form_id and insurance_form_id)
+        "nj_insurance_form_id": {
+            "present": bool(nj_insurance_form_id),
+            "value": nj_insurance_form_id or "Not set (falls back to insurance_form_id)",
+            "env_var": "NJ_INSURANCE_MANDATORY_FORM_ID"
+        },
+        "ny_insurance_form_id": {
+            "present": bool(ny_insurance_form_id),
+            "value": ny_insurance_form_id or "Not set (falls back to insurance_form_id)",
+            "env_var": "NY_INSURANCE_MANDATORY_FORM_ID"
+        },
+        "ready_for_mandatory_forms": bool(cash_pay_form_id and (nj_insurance_form_id or insurance_form_id) and (ny_insurance_form_id or insurance_form_id))
     })

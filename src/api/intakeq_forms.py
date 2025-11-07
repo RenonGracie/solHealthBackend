@@ -50,6 +50,54 @@ def safe_extract_string(value):
         return ""
 
 
+def normalize_phone_number(phone: str) -> str:
+    """
+    Normalize phone number by removing +1 country code prefix.
+
+    IntakeQ expects US phone numbers without the +1 prefix.
+    Input: "+13102391030" or "13102391030" or "+1310239103" or "1310239103"
+    Output: "3102391030" (10 digits, no leading 1)
+
+    Args:
+        phone: Phone number string (may include +1, spaces, parentheses, dashes)
+
+    Returns:
+        Normalized 10-digit phone number without +1 prefix
+    """
+    if not phone:
+        return ""
+
+    # Convert to string and strip whitespace
+    phone = str(phone).strip()
+
+    # Extract only digits
+    phone_digits = "".join(c for c in phone if c.isdigit())
+
+    # Log original format for debugging
+    if phone != phone_digits:
+        logger.info(f"📞 Phone normalized: '{phone}' → '{phone_digits}' ({len(phone_digits)} digits)")
+
+    # Remove leading "1" if present (US country code)
+    # Case 1: 11 digits starting with 1 (e.g., "13102391030" → "3102391030")
+    if len(phone_digits) == 11 and phone_digits.startswith("1"):
+        original = phone_digits
+        phone_digits = phone_digits[1:]
+        logger.info(f"✂️ Stripped country code: {original} → {phone_digits}")
+
+    # Case 2: 10 digits starting with 1 (e.g., "1310239103" → "310239103")
+    # US area codes never start with 1, so this is definitely a country code prefix
+    elif len(phone_digits) == 10 and phone_digits.startswith("1"):
+        original = phone_digits
+        phone_digits = phone_digits[1:]
+        logger.warning(f"⚠️ Invalid 10-digit number with leading 1: {original} → {phone_digits} (now 9 digits - CHECK SOURCE DATA!)")
+
+    # Final validation
+    if len(phone_digits) != 10:
+        logger.error(f"❌ Phone number is not 10 digits: '{phone}' → '{phone_digits}' ({len(phone_digits)} digits)")
+
+    return phone_digits
+
+
 # Import Google Sheets logging service
 try:
     from ..services.google_sheets import sheets_logger
@@ -1108,11 +1156,11 @@ def build_comprehensive_intakeq_payload(client_data: dict, payment_type: str) ->
         "LastName": last_name,
         "MiddleName": client_data.get("middle_name", ""),
         "Email": client_data.get("email", ""),
-        # Contact information
-        "Phone": client_data.get("phone", ""),
-        "MobilePhone": client_data.get("mobile_phone") or client_data.get("phone", ""),
-        "HomePhone": client_data.get("home_phone", ""),
-        "WorkPhone": client_data.get("work_phone", ""),
+        # Contact information (normalize phone numbers - strip +1 prefix)
+        "Phone": normalize_phone_number(client_data.get("phone", "")),
+        "MobilePhone": normalize_phone_number(client_data.get("mobile_phone") or client_data.get("phone", "")),
+        "HomePhone": normalize_phone_number(client_data.get("home_phone", "")),
+        "WorkPhone": normalize_phone_number(client_data.get("work_phone", "")),
         # Demographics
         "Gender": map_gender(client_data.get("gender", "")),
         "MaritalStatus": client_data.get("marital_status", ""),
@@ -2301,9 +2349,9 @@ def send_mandatory_form():
                 f"👨‍⚕️ Therapist Email (no PractitionerId): {data['therapist_email']}"
             )
 
-        # Add phone for SMS option
+        # Add phone for SMS option (normalize to strip +1 prefix)
         if data.get("client_phone"):
-            intakeq_payload["ClientPhone"] = data["client_phone"]
+            intakeq_payload["ClientPhone"] = normalize_phone_number(data["client_phone"])
 
         # Add external client ID if provided
         if data.get("external_client_id"):
