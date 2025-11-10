@@ -1047,6 +1047,54 @@ class GoogleSheetsProgressiveLogger:
             )
 
             row_data = self._flatten_data_progressive(user_data, stage=2)
+
+            # AUDIT: Log what Nirvana fields are being written
+            logger.info("=" * 60)
+            logger.info("🔍 [NIRVANA AUDIT] Auditing Nirvana column values before Google Sheets write")
+
+            nirvana_audit_columns = [
+                "insurance_provider_original", "insurance_provider_corrected", "insurance_correction_type",
+                "nirvana_plan_name", "nirvana_group_id", "nirvana_payer_id",
+                "nirvana_plan_status", "nirvana_coverage_status", "nirvana_relationship_to_subscriber",
+                "nirvana_insurance_type", "nirvana_insurance_company_name",
+                "nirvana_member_id_policy_number", "nirvana_group_number", "nirvana_plan_program",
+                "nirvana_policyholder_relationship", "nirvana_policyholder_name",
+                "nirvana_policyholder_first_name", "nirvana_policyholder_last_name",
+                "nirvana_policyholder_street_address", "nirvana_policyholder_city"
+            ]
+
+            headers = self._get_comprehensive_headers()
+            nirvana_populated = []
+            nirvana_empty = []
+
+            for column in nirvana_audit_columns:
+                if column in headers:
+                    idx = headers.index(column)
+                    value = row_data[idx] if idx < len(row_data) else ""
+
+                    if value and str(value).strip():
+                        nirvana_populated.append(column)
+                        display_value = str(value)[:50] if len(str(value)) > 50 else value
+                        logger.info(f"  ✓ {column}: {display_value}")
+                    else:
+                        nirvana_empty.append(column)
+                        logger.info(f"  ✗ {column}: (empty)")
+
+            logger.info("=" * 60)
+            logger.info(f"📊 [NIRVANA AUDIT SUMMARY]")
+            logger.info(f"  Populated: {len(nirvana_populated)}/{len(nirvana_audit_columns)} columns")
+            logger.info(f"  Empty: {len(nirvana_empty)}/{len(nirvana_audit_columns)} columns")
+
+            if nirvana_empty:
+                logger.warning(f"⚠️  Empty Nirvana columns: {nirvana_empty[:5]}{'...' if len(nirvana_empty) > 5 else ''}")
+
+            if user_data.get("nirvana_data"):
+                logger.info(f"✅ nirvana_data present in user_data")
+            else:
+                logger.warning(f"❌ nirvana_data NOT present in user_data - this will cause empty Nirvana columns!")
+
+            logger.info("=" * 60)
+
             success = self._update_or_create_row(response_id, row_data, stage=2)
 
             if success:

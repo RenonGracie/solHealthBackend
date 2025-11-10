@@ -23,26 +23,98 @@ nirvana_callback_bp = Blueprint("nirvana_callback", __name__)
 def handle_nirvana_verified():
     """
     Handle immediate Nirvana verification callback
-    
+
     Called by Lambda immediately after Nirvana returns 200 with insurance data.
     This enables truly progressive logging - we log to Google Sheets as soon as
     we have insurance verification, not waiting for IntakeQ or other steps.
     """
-    logger.info("📞 Received Nirvana verification callback")
-    
+    logger.info("=" * 60)
+    logger.info("📞 [NIRVANA CALLBACK] Received Nirvana verification callback")
+    logger.info("=" * 60)
+
     try:
         data = request.get_json()
         if not data:
-            logger.error("No JSON data received in Nirvana callback")
+            logger.error("❌ No JSON data received in Nirvana callback")
             return jsonify({"error": "No data provided"}), 400
-            
+
+        # ENHANCED LOGGING: Log the exact raw structure received from Lambda
+        logger.info("🔍 [RAW DATA STRUCTURE] Logging complete incoming payload structure:")
+        logger.info(f"  Total top-level keys: {len(data)}")
+        logger.info(f"  Top-level keys: {list(data.keys())}")
+
+        # Log each top-level field with its type and sample
+        for key, value in data.items():
+            value_type = type(value).__name__
+            if isinstance(value, dict):
+                sample = f"dict with {len(value)} keys: {list(value.keys())[:5]}"
+            elif isinstance(value, list):
+                sample = f"list with {len(value)} items"
+            elif isinstance(value, str) and len(value) > 100:
+                sample = f"{value[:100]}..."
+            else:
+                sample = value
+            logger.info(f"    {key}: ({value_type}) {sample}")
+
+        # Check specifically for Nirvana data structures
+        nirvana_keys = ["nirvana_data", "nirvana_response", "nirvana_raw_response",
+                        "insurance_verification_data", "rawNirvanaResponse"]
+        found_nirvana_keys = [k for k in nirvana_keys if k in data]
+
+        if found_nirvana_keys:
+            logger.info(f"✅ [NIRVANA DATA FOUND] Located Nirvana data at keys: {found_nirvana_keys}")
+            for key in found_nirvana_keys:
+                nirvana_value = data[key]
+                if isinstance(nirvana_value, dict):
+                    logger.info(f"  {key} structure:")
+                    logger.info(f"    Keys: {list(nirvana_value.keys())}")
+
+                    # Check for nested demographics
+                    if "demographics" in nirvana_value:
+                        demo = nirvana_value["demographics"]
+                        logger.info(f"    demographics keys: {list(demo.keys()) if isinstance(demo, dict) else type(demo)}")
+                        if isinstance(demo, dict) and "address" in demo:
+                            logger.info(f"      address keys: {list(demo['address'].keys())}")
+
+                    # Check for nested subscriber_demographics
+                    if "subscriber_demographics" in nirvana_value:
+                        sub_demo = nirvana_value["subscriber_demographics"]
+                        logger.info(f"    subscriber_demographics keys: {list(sub_demo.keys()) if isinstance(sub_demo, dict) else type(sub_demo)}")
+                        if isinstance(sub_demo, dict) and "address" in sub_demo:
+                            logger.info(f"      address keys: {list(sub_demo['address'].keys())}")
+        else:
+            logger.warning(f"⚠️ [NIRVANA DATA MISSING] No Nirvana data found in any expected keys")
+            logger.warning(f"  Expected one of: {nirvana_keys}")
+            logger.warning(f"  Received keys: {list(data.keys())}")
+
+        logger.info("=" * 60)
+
         response_id = data.get("response_id")
         if not response_id:
-            logger.error("No response_id provided in Nirvana callback")
+            logger.error("❌ No response_id provided in Nirvana callback")
             return jsonify({"error": "response_id required"}), 400
-        
-        logger.info(f"📊 Processing immediate Nirvana logging for {response_id}")
-        
+
+        logger.info(f"📊 [PROCESSING] Starting immediate Nirvana logging for {response_id}")
+
+        # Validate Nirvana data structure
+        from src.utils.comprehensive_data_logger import validate_nirvana_data_structure
+        validation_report = validate_nirvana_data_structure(data)
+
+        logger.info("=" * 60)
+        logger.info("🔍 [VALIDATION REPORT]")
+        logger.info(f"  Nirvana data found: {validation_report['nirvana_data_found']}")
+        if validation_report['nirvana_data_found']:
+            logger.info(f"  Location: {validation_report['nirvana_location']}")
+        if validation_report['missing_sections']:
+            logger.warning(f"  Missing sections: {len(validation_report['missing_sections'])}")
+        if validation_report['warnings']:
+            logger.warning(f"  Warnings: {len(validation_report['warnings'])}")
+        if validation_report['recommendations']:
+            logger.info("  Recommendations:")
+            for rec in validation_report['recommendations']:
+                logger.info(f"    - {rec}")
+        logger.info("=" * 60)
+
         # Use comprehensive data capture to extract ALL available data
         user_data = ensure_comprehensive_logging(data)
         

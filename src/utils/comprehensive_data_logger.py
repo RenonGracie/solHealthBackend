@@ -602,5 +602,121 @@ def ensure_comprehensive_logging(payload: Dict[str, Any]) -> Dict[str, Any]:
     
     logger.info("✅ [COMPREHENSIVE LOGGING] Enhancement complete")
     logger.info(f"📊 Enhanced payload with {comprehensive_data['_fields_extracted']} additional fields")
-    
+
     return enhanced_payload
+
+
+def validate_nirvana_data_structure(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Validate that incoming Nirvana data matches the expected structure.
+
+    This function checks if the Nirvana data is in the correct format for
+    Google Sheets logging and warns about any structural mismatches.
+
+    Args:
+        payload: Incoming data from Nirvana callback
+
+    Returns:
+        Validation report with warnings and recommendations
+    """
+    logger.info("🔍 [NIRVANA VALIDATION] Validating Nirvana data structure")
+
+    validation_report = {
+        "nirvana_data_found": False,
+        "nirvana_location": None,
+        "expected_structure_present": True,
+        "missing_sections": [],
+        "warnings": [],
+        "recommendations": []
+    }
+
+    # Check where Nirvana data is located
+    nirvana_keys = ["nirvana_data", "nirvana_response", "nirvana_raw_response",
+                    "insurance_verification_data", "rawNirvanaResponse"]
+
+    for key in nirvana_keys:
+        if key in payload:
+            validation_report["nirvana_data_found"] = True
+            validation_report["nirvana_location"] = key
+            nirvana_data = payload[key]
+
+            # Parse if string
+            if isinstance(nirvana_data, str):
+                try:
+                    import json
+                    nirvana_data = json.loads(nirvana_data)
+                except json.JSONDecodeError:
+                    validation_report["warnings"].append(
+                        f"Nirvana data at '{key}' is a string but cannot be parsed as JSON"
+                    )
+                    validation_report["expected_structure_present"] = False
+                    continue
+
+            if isinstance(nirvana_data, dict):
+                # Check expected sections
+                expected_sections = {
+                    "plan_name": "Insurance plan name",
+                    "group_id": "Insurance group ID",
+                    "payer_id": "Payer ID",
+                    "demographics": "Member demographics (nested)",
+                    "subscriber_demographics": "Subscriber demographics (nested)"
+                }
+
+                for section, description in expected_sections.items():
+                    if section not in nirvana_data:
+                        validation_report["missing_sections"].append(f"{section} ({description})")
+
+                # Validate nested demographics structure
+                if "demographics" in nirvana_data:
+                    demographics = nirvana_data["demographics"]
+                    if not isinstance(demographics, dict):
+                        validation_report["warnings"].append(
+                            "demographics is not a dict - expected nested structure"
+                        )
+                    elif "address" not in demographics:
+                        validation_report["warnings"].append(
+                            "demographics.address is missing"
+                        )
+
+                # Validate nested subscriber_demographics structure
+                if "subscriber_demographics" in nirvana_data:
+                    sub_demo = nirvana_data["subscriber_demographics"]
+                    if not isinstance(sub_demo, dict):
+                        validation_report["warnings"].append(
+                            "subscriber_demographics is not a dict - expected nested structure"
+                        )
+                    elif "address" not in sub_demo:
+                        validation_report["warnings"].append(
+                            "subscriber_demographics.address is missing"
+                        )
+
+            break
+
+    # Generate recommendations
+    if not validation_report["nirvana_data_found"]:
+        validation_report["recommendations"].append(
+            "❌ CRITICAL: No Nirvana data found in payload. Expected one of: " + ", ".join(nirvana_keys)
+        )
+        logger.error("❌ [NIRVANA VALIDATION] No Nirvana data found in payload")
+
+    if validation_report["missing_sections"]:
+        validation_report["recommendations"].append(
+            f"⚠️ Missing {len(validation_report['missing_sections'])} expected sections: " +
+            ", ".join(validation_report["missing_sections"])
+        )
+        logger.warning(f"⚠️ [NIRVANA VALIDATION] Missing sections: {validation_report['missing_sections']}")
+
+    if validation_report["warnings"]:
+        validation_report["recommendations"].append(
+            f"⚠️ {len(validation_report['warnings'])} structural warnings detected"
+        )
+        for warning in validation_report["warnings"]:
+            logger.warning(f"⚠️ [NIRVANA VALIDATION] {warning}")
+
+    if not validation_report["missing_sections"] and not validation_report["warnings"] and validation_report["nirvana_data_found"]:
+        validation_report["recommendations"].append(
+            "✅ Nirvana data structure is valid and complete"
+        )
+        logger.info("✅ [NIRVANA VALIDATION] Nirvana data structure is valid")
+
+    return validation_report
