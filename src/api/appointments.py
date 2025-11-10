@@ -1462,6 +1462,7 @@ Payment Type: {client_response.payment_type}
                 "account_type": account_type,
                 "intakeq_client_id": intakeq_client_id,
                 "therapist_name": data["therapist_name"],
+                "state": client_response.state,  # Client state for state-specific IntakeQ credentials
                 # Google Sheets data (comprehensive Stage 3 data)
                 "comprehensive_data": comprehensive_data,
             }
@@ -1470,6 +1471,7 @@ Payment Type: {client_response.payment_type}
             logger.info("📊 [STAGE 3 CHECKPOINT 3] task_data prepared for async execution")
             logger.info(f"  Response ID: {task_data.get('response_id')}")
             logger.info(f"  Account Type: {task_data.get('account_type')}")
+            logger.info(f"  State: {task_data.get('state')}")
             logger.info(f"  IntakeQ Client ID: {task_data.get('intakeq_client_id')}")
             logger.info(f"  Therapist: {task_data.get('therapist_name')}")
             logger.info(f"  comprehensive_data included: {bool(task_data.get('comprehensive_data'))}")

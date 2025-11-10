@@ -115,19 +115,22 @@ class AsyncTaskProcessor:
             account_type = task_data.get("account_type")
             intakeq_client_id = task_data.get("intakeq_client_id")
             therapist_name = task_data.get("therapist_name")
+            client_state = task_data.get("state")  # Client state for state-specific credentials
 
             self.logger.info(f"🤖 [ASYNC] Selenium Parameters:")
             self.logger.info(f"  account_type: {account_type}")
             self.logger.info(f"  client_id: {intakeq_client_id}")
             self.logger.info(f"  therapist_name: {therapist_name}")
             self.logger.info(f"  client_response_id: {client_response_id}")
+            self.logger.info(f"  state: {client_state}")
 
             # Call the Railway selenium bot to assign practitioner
             selenium_result = assign_practitioner_railway_direct(
                 account_type=account_type,
                 client_id=str(intakeq_client_id),
                 therapist_full_name=therapist_name,
-                response_id=client_response_id
+                response_id=client_response_id,
+                state=client_state  # Pass state for state-specific IntakeQ credentials
             )
             
             selenium_success = selenium_result.get("success", False)
