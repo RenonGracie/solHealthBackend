@@ -2738,3 +2738,112 @@ def get_available_states():
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()
+
+
+@therapists_bp.route("/therapists/admin/inspect-data", methods=["GET"])
+def admin_inspect_therapist_data():
+    """
+    Admin endpoint to inspect "Diagnoses + Specialties" and "Lived Experiences" data
+    for random therapists from the database.
+
+    Query Parameters:
+    - count: Number of therapists to sample (default: 3, max: 10)
+    - email: Optional specific therapist email to inspect
+
+    Returns:
+    - Therapist name, email
+    - Diagnoses + Specialties (all formats)
+    - Lived Experience related fields
+    """
+    try:
+        count = min(int(request.args.get("count", 3)), 10)
+        specific_email = request.args.get("email")
+
+        session = get_db_session()
+
+        if specific_email:
+            # Query specific therapist by email
+            therapists = session.query(Therapist).filter(
+                func.lower(Therapist.email) == specific_email.lower().strip()
+            ).limit(1).all()
+
+            if not therapists:
+                return jsonify({
+                    "error": f"Therapist with email '{specific_email}' not found"
+                }), 404
+        else:
+            # Get random therapists
+            therapists = session.query(Therapist).order_by(func.random()).limit(count).all()
+
+        if not therapists:
+            return jsonify({"error": "No therapists found in database"}), 404
+
+        results = []
+
+        for therapist in therapists:
+            # Collect all "Diagnoses + Specialties" data
+            diagnoses_specialties_data = {
+                "diagnoses_specialties_text": therapist.diagnoses_specialties,
+                "diagnoses_specialties_array": therapist.diagnoses_specialties_array or [],
+                "diagnoses_text": therapist.diagnoses,
+                "specialities_text": therapist.specialities,
+                "array_count": len(therapist.diagnoses_specialties_array or []),
+                "array_items": therapist.diagnoses_specialties_array or [],
+            }
+
+            # Collect all "Lived Experiences" related fields
+            lived_experiences_data = {
+                "social_media_affected": therapist.social_media_affected,
+                "family_household": therapist.family_household,
+                "culture": therapist.culture,
+                "places": therapist.places,
+                "immigration_background": therapist.immigration_background,
+                "has_children": therapist.has_children,
+                "married": therapist.married,
+                "caretaker_role": therapist.caretaker_role,
+                "lgbtq_part": therapist.lgbtq_part,
+                "performing_arts": therapist.performing_arts,
+                "first_generation": therapist.first_generation,
+                "has_job": therapist.has_job,
+            }
+
+            # Count how many lived experience fields are set
+            lived_experience_count = sum([
+                1 for value in lived_experiences_data.values()
+                if value and str(value).strip() and str(value).lower() not in ['false', 'no', 'none', '']
+            ])
+
+            results.append({
+                "name": therapist.name,
+                "email": therapist.email,
+                "accepting_new_clients": therapist.accepting_new_clients,
+                "states": therapist.states_array or [],
+                "program": therapist.program,
+                "diagnoses_specialties": diagnoses_specialties_data,
+                "lived_experiences": lived_experiences_data,
+                "lived_experiences_count": lived_experience_count,
+            })
+
+        response = {
+            "count": len(results),
+            "therapists": results,
+            "database_info": {
+                "total_therapists": session.query(Therapist).count(),
+                "therapists_with_diagnoses_array": session.query(Therapist).filter(
+                    Therapist.diagnoses_specialties_array.isnot(None)
+                ).count(),
+                "therapists_accepting_clients": session.query(Therapist).filter(
+                    Therapist.accepting_new_clients == "Yes"
+                ).count(),
+            }
+        }
+
+        session.close()
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Error in admin inspect endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
