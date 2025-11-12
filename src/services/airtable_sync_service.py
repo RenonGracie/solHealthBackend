@@ -368,6 +368,10 @@ class AirtableSyncService:
             "diagnoses_specialities": parse_array_field(
                 fields.get("Diagnoses + Specialties", "")
             ),
+            # Lived Experiences (consolidated array from Airtable)
+            "lived_experiences": parse_array_field(
+                fields.get("Lived Experiences", "")
+            ),
             # Personal characteristics
             "social_media_affected": fields.get(
                 "Social Media: Have you ever been negatively affected by social media?"

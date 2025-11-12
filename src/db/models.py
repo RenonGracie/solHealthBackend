@@ -74,6 +74,9 @@ class Therapist(Base):
     diagnoses_specialties = Column(Text)
     diagnoses_specialties_array = Column(ARRAY(String))
 
+    # lived experiences (consolidated from Airtable)
+    lived_experiences = Column(ARRAY(String))  # NEW: Direct array from Airtable "Lived Experiences" column
+
     # personal
     social_media_affected = Column(String)
     family_household = Column(String)

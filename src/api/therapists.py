@@ -171,6 +171,173 @@ def normalize_topic(raw: str) -> Optional[str]:
     return None
 
 
+# Canonical lived experiences for matching (maps client selections to therapist fields)
+CANONICAL_LIVED_EXPERIENCES = {
+    "first-generation college student": "first_generation",
+    "lgbtq+ identity": "lgbtq_identity",
+    "racial or ethnic minority": "racial_minority",
+    "international or immigrant background": "immigrant",
+    "chronic illness or disability": "chronic_illness",
+    "neurodivergent identity": "neurodivergent",
+    "parent or caregiver": "parent_caregiver",
+    "veteran or military family": "veteran",
+    "worked in high-pressure or corporate environments": "corporate",
+    "creative or artistic background": "creative_artistic",
+    "active & holistic lifestyle": "active_holistic",
+    "non-traditional family": "non_traditional_family",
+    "collectivist culture": "collectivist",
+    "individualist culture": "individualist",
+    "social media affected": "social_media",
+}
+
+
+def normalize_lived_experience(raw: str) -> Optional[str]:
+    """
+    Normalize a lived experience string to canonical form for matching.
+
+    Args:
+        raw: Raw lived experience string from client survey
+
+    Returns:
+        Canonical lived experience key or None if no match
+    """
+    s = (raw or "").strip().lower()
+    if not s:
+        return None
+
+    # Direct canonical hit
+    if s in CANONICAL_LIVED_EXPERIENCES:
+        return CANONICAL_LIVED_EXPERIENCES[s]
+
+    # Synonym matching
+    if "first gen" in s or "first-gen" in s or "first generation" in s:
+        return "first_generation"
+
+    if "lgbt" in s or "queer" in s or "gay" in s or "lesbian" in s or "bisexual" in s or "transgender" in s:
+        return "lgbtq_identity"
+
+    if "racial" in s or "ethnic" in s or "minority" in s or "poc" in s or "person of color" in s:
+        return "racial_minority"
+
+    if "immigrant" in s or "immigration" in s or "international" in s or "first gen" in s or "second gen" in s:
+        return "immigrant"
+
+    if "chronic" in s or "illness" in s or "disability" in s or "disabled" in s:
+        return "chronic_illness"
+
+    if "neurodiverg" in s or "adhd" in s or "autism" in s or "neurodiverse" in s:
+        return "neurodivergent"
+
+    if "parent" in s or "caregiver" in s or "caretaker" in s or "children" in s:
+        return "parent_caregiver"
+
+    if "veteran" in s or "military" in s or "armed forces" in s:
+        return "veteran"
+
+    if "corporate" in s or "high-pressure" in s or "high pressure" in s or "business" in s:
+        return "corporate"
+
+    if "creative" in s or "artistic" in s or "artist" in s or "performing arts" in s or "visual arts" in s:
+        return "creative_artistic"
+
+    if "active" in s or "holistic" in s or "wellness" in s or "fitness" in s:
+        return "active_holistic"
+
+    if "non-traditional" in s and "family" in s:
+        return "non_traditional_family"
+
+    if "collectivist" in s:
+        return "collectivist"
+
+    if "individualist" in s:
+        return "individualist"
+
+    if "social media" in s:
+        return "social_media"
+
+    return None
+
+
+def check_therapist_lived_experience(therapist: Therapist, experience_key: str) -> bool:
+    """
+    Check if a therapist has a specific lived experience based on their database fields.
+
+    Args:
+        therapist: Therapist model instance
+        experience_key: Canonical lived experience key
+
+    Returns:
+        True if therapist has this lived experience
+    """
+    # Helper to check if a value indicates "yes"
+    def is_yes(val):
+        if val is None:
+            return False
+        val_str = str(val).lower().strip()
+        return val_str in ["yes", "true", "1", "checked"]
+
+    # Map canonical keys to therapist field checks
+    if experience_key == "first_generation":
+        return is_yes(therapist.first_generation)
+
+    elif experience_key == "lgbtq_identity":
+        return is_yes(therapist.lgbtq_part)
+
+    elif experience_key == "racial_minority":
+        # Check ethnicity field for non-white/caucasian values
+        ethnicity = str(therapist.ethnicity or "").lower()
+        if not ethnicity or ethnicity in ["", "white", "caucasian", "not comfortable disclosing"]:
+            return False
+        return True
+
+    elif experience_key == "immigrant":
+        immigration = str(therapist.immigration_background or "").lower()
+        return "immigrant" in immigration or "international" in immigration or "gen" in immigration
+
+    elif experience_key == "chronic_illness":
+        # Could add a dedicated field in future, for now return False
+        return False
+
+    elif experience_key == "neurodivergent":
+        # Check neurodivergence_experience field
+        neuro = str(therapist.neurodivergence_experience or "").lower()
+        return "yes" in neuro or "lived experience" in neuro
+
+    elif experience_key == "parent_caregiver":
+        return is_yes(therapist.has_children) or is_yes(therapist.caretaker_role)
+
+    elif experience_key == "veteran":
+        # Could add a dedicated field in future, for now return False
+        return False
+
+    elif experience_key == "corporate":
+        return is_yes(therapist.has_job)
+
+    elif experience_key == "creative_artistic":
+        return is_yes(therapist.performing_arts)
+
+    elif experience_key == "active_holistic":
+        # Could add a dedicated field in future, for now return False
+        return False
+
+    elif experience_key == "non_traditional_family":
+        family = str(therapist.family_household or "").lower()
+        return "non-traditional" in family
+
+    elif experience_key == "collectivist":
+        culture = str(therapist.culture or "").lower()
+        return "collectivist" in culture
+
+    elif experience_key == "individualist":
+        culture = str(therapist.culture or "").lower()
+        return "individualist" in culture
+
+    elif experience_key == "social_media":
+        return is_yes(therapist.social_media_affected)
+
+    return False
+
+
 def enrich_therapist_with_s3_urls(therapist_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Add S3 media URLs to therapist data if available."""
     email = therapist_dict.get("email", "")
@@ -547,43 +714,41 @@ def calculate_soft_score(
             ):
                 score += 10  # 10 points per orientation match
 
-    # Score lived experiences
-    lived = [x.lower() for x in (client_data.get("lived_experiences") or [])]
+    # Score lived experiences (IMPROVED: Uses normalization like specialties)
+    client_lived_experiences_raw = client_data.get("lived_experiences") or []
 
-    if (
-        "non-traditional" in " ".join(lived)
-        and "non-traditional" in (therapist.family_household or "").lower()
-    ):
-        score += 5
-    if (
-        "generation immigrant" in " ".join(lived)
-        and "gen immigrant" in (therapist.immigration_background or "").lower()
-    ):
-        score += 5
-    if (
-        "individualist" in " ".join(lived)
-        and "individualist" in (therapist.culture or "").lower()
-    ):
-        score += 5
-    if (
-        "collectivist" in " ".join(lived)
-        and "collectivist" in (therapist.culture or "").lower()
-    ):
-        score += 5
-    if "suburban" in " ".join(lived) and "suburban" in (therapist.places or "").lower():
-        score += 5
-    if "urban" in " ".join(lived) and "urban" in (therapist.places or "").lower():
-        score += 5
-    if "rural" in " ".join(lived) and "rural" in (therapist.places or "").lower():
-        score += 5
-    if "parent" in " ".join(lived) and therapist.has_children == "Yes":
-        score += 5
-    if "caretaker" in " ".join(lived) and therapist.caretaker_role == "Yes":
-        score += 5
-    if "lgbtq" in " ".join(lived) and therapist.lgbtq_part == "Yes":
-        score += 5
-    if "social media" in " ".join(lived) and therapist.social_media_affected:
-        score += 5
+    # Normalize client lived experiences to canonical keys
+    client_lived_experiences = set()
+    for experience in client_lived_experiences_raw:
+        normalized = normalize_lived_experience(experience)
+        if normalized:
+            client_lived_experiences.add(normalized)
+
+    # Build therapist lived experiences set from ALL sources
+    therapist_lived_experiences = set()
+
+    # PRIORITY 1: Use consolidated array from Airtable "Lived Experiences" column (if exists)
+    if therapist.lived_experiences:
+        for experience in therapist.lived_experiences:
+            normalized = normalize_lived_experience(experience)
+            if normalized:
+                therapist_lived_experiences.add(normalized)
+
+    # PRIORITY 2: Check individual fields (backward compatibility + extra coverage)
+    for experience_key in client_lived_experiences:
+        if check_therapist_lived_experience(therapist, experience_key):
+            therapist_lived_experiences.add(experience_key)
+
+    # Calculate matches
+    matched_lived_experiences = client_lived_experiences & therapist_lived_experiences
+    matched_count = len(matched_lived_experiences)
+
+    if matched_count > 0:
+        lived_experience_score = matched_count * 20  # 20 points per match
+        score += lived_experience_score
+        logger.debug(
+            f"  ✓ Lived experiences: {matched_count} matches ({', '.join(matched_lived_experiences)}) = +{lived_experience_score} points"
+        )
 
     return score, matched_specs
 
@@ -2740,7 +2905,7 @@ def get_available_states():
         session.close()
 
 
-@therapists_bp.route("/therapists/admin/inspect-data", methods=["GET"])
+@therapists_bp.route("/admin/inspect-data", methods=["GET"])
 def admin_inspect_therapist_data():
     """
     Admin endpoint to inspect "Diagnoses + Specialties" and "Lived Experiences" data
@@ -2833,7 +2998,11 @@ def admin_inspect_therapist_data():
                     Therapist.diagnoses_specialties_array.isnot(None)
                 ).count(),
                 "therapists_accepting_clients": session.query(Therapist).filter(
-                    Therapist.accepting_new_clients == "Yes"
+                    or_(
+                        Therapist.accepting_new_clients == "Yes",
+                        Therapist.accepting_new_clients == "true",
+                        Therapist.accepting_new_clients == True
+                    )
                 ).count(),
             }
         }
@@ -2844,6 +3013,251 @@ def admin_inspect_therapist_data():
 
     except Exception as e:
         logger.error(f"Error in admin inspect endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@therapists_bp.route("/admin/debug-amalgamation", methods=["GET"])
+def admin_debug_amalgamation():
+    """
+    Debug endpoint to show how multiple "Diagnoses + Specialties" and "Lived Experiences"
+    columns are being amalgamated and deduplicated.
+
+    Query Parameters:
+    - email: Required - specific therapist email to inspect
+    - show_matching: Optional - show what would actually be used in matching (default: true)
+
+    Returns:
+    - All source columns (raw data)
+    - Amalgamated results (deduplicated)
+    - What matching algorithm actually uses
+    """
+    try:
+        therapist_email = request.args.get("email")
+        show_matching = request.args.get("show_matching", "true").lower() == "true"
+
+        if not therapist_email:
+            return jsonify({
+                "error": "email parameter is required",
+                "usage": "/admin/debug-amalgamation?email=therapist@solhealth.co"
+            }), 400
+
+        session = get_db_session()
+
+        # Query specific therapist
+        therapist = session.query(Therapist).filter(
+            func.lower(Therapist.email) == therapist_email.lower().strip()
+        ).first()
+
+        if not therapist:
+            return jsonify({
+                "error": f"Therapist with email '{therapist_email}' not found"
+            }), 404
+
+        # ========== DIAGNOSES + SPECIALTIES AMALGAMATION ==========
+
+        # Source columns (what's in database from Airtable)
+        diagnoses_specialties_sources = {
+            "diagnoses_specialties_text": therapist.diagnoses_specialties,
+            "diagnoses_specialties_array": therapist.diagnoses_specialties_array or [],
+            "diagnoses_text": therapist.diagnoses,
+            "specialities_text": therapist.specialities,
+        }
+
+        # Amalgamate all sources (what matching algorithm does)
+        all_diagnoses_specialties = set()
+
+        # From array field (primary source)
+        for item in therapist.diagnoses_specialties_array or []:
+            if item and item.strip():
+                all_diagnoses_specialties.add(item.strip())
+
+        # From text fields (backup sources)
+        for field_value in [
+            therapist.diagnoses_specialties,
+            therapist.specialities,
+            therapist.diagnoses,
+        ]:
+            if field_value:
+                # Handle both comma-separated and PostgreSQL array format
+                cleaned = field_value.replace("{", "").replace("}", "").replace('"', '')
+                for item in cleaned.split(","):
+                    item_clean = item.strip()
+                    if item_clean:
+                        all_diagnoses_specialties.add(item_clean)
+
+        # Normalize for matching (what algorithm actually uses)
+        normalized_diagnoses_specialties = set()
+        normalized_diagnoses_specialties_map = {}
+        for item in all_diagnoses_specialties:
+            normalized = normalize_topic(item)
+            if normalized:
+                normalized_diagnoses_specialties.add(normalized)
+                if normalized not in normalized_diagnoses_specialties_map:
+                    normalized_diagnoses_specialties_map[normalized] = []
+                normalized_diagnoses_specialties_map[normalized].append(item)
+
+        diagnoses_specialties_result = {
+            "source_columns": diagnoses_specialties_sources,
+            "amalgamated_raw": sorted(list(all_diagnoses_specialties)),
+            "amalgamated_count": len(all_diagnoses_specialties),
+            "normalized_for_matching": sorted(list(normalized_diagnoses_specialties)),
+            "normalized_count": len(normalized_diagnoses_specialties),
+            "normalization_map": normalized_diagnoses_specialties_map if show_matching else None,
+            "notes": [
+                "Array field is primary source (fastest)",
+                "Text fields are parsed as backup",
+                "Duplicates are automatically removed",
+                "All items are normalized for matching (e.g., 'anxiety' → 'Anxiety')"
+            ]
+        }
+
+        # ========== LIVED EXPERIENCES AMALGAMATION ==========
+
+        # Source columns (what's in database from Airtable)
+        lived_experiences_sources = {
+            # NEW: Consolidated array from Airtable "Lived Experiences" column
+            "lived_experiences_array": therapist.lived_experiences or [],
+            # Individual fields (legacy/backup)
+            "social_media_affected": therapist.social_media_affected,
+            "family_household": therapist.family_household,
+            "culture": therapist.culture,
+            "places": therapist.places,
+            "immigration_background": therapist.immigration_background,
+            "has_children": therapist.has_children,
+            "married": therapist.married,
+            "caretaker_role": therapist.caretaker_role,
+            "lgbtq_part": therapist.lgbtq_part,
+            "performing_arts": therapist.performing_arts,
+            "first_generation": therapist.first_generation,
+            "has_job": therapist.has_job,
+            "gender_experience": therapist.gender_experience,
+            "lgbtq_experience": therapist.lgbtq_experience,
+            "neurodivergence_experience": therapist.neurodivergence_experience,
+            "risk_experience": therapist.risk_experience,
+            "ethnicity": therapist.ethnicity,
+        }
+
+        # Amalgamate into virtual "lived experiences" array
+        virtual_lived_experiences = []
+
+        # PRIORITY 1: Use consolidated "Lived Experiences" array from Airtable (if exists)
+        if therapist.lived_experiences:
+            virtual_lived_experiences.extend(therapist.lived_experiences)
+
+        # PRIORITY 2: Fallback to individual fields (for backward compatibility)
+        def is_yes(val):
+            if val is None:
+                return False
+            return str(val).lower().strip() in ["yes", "true", "1", "checked"]
+
+        # Map database fields to human-readable lived experiences (backup source)
+        if is_yes(therapist.first_generation):
+            virtual_lived_experiences.append("First-generation college student")
+
+        if is_yes(therapist.lgbtq_part):
+            virtual_lived_experiences.append("LGBTQ+ identity")
+
+        ethnicity_val = str(therapist.ethnicity or "").lower()
+        if ethnicity_val and ethnicity_val not in ["", "white", "caucasian", "not comfortable disclosing"]:
+            virtual_lived_experiences.append(f"Racial/ethnic minority ({therapist.ethnicity})")
+
+        immigration = str(therapist.immigration_background or "")
+        if "immigrant" in immigration.lower() or "gen" in immigration.lower():
+            virtual_lived_experiences.append(f"International/immigrant background ({immigration})")
+
+        neuro = str(therapist.neurodivergence_experience or "").lower()
+        if "yes" in neuro or "lived experience" in neuro:
+            virtual_lived_experiences.append("Neurodivergent identity")
+
+        if is_yes(therapist.has_children):
+            virtual_lived_experiences.append("Parent")
+
+        if is_yes(therapist.caretaker_role):
+            virtual_lived_experiences.append("Caregiver")
+
+        if is_yes(therapist.has_job):
+            virtual_lived_experiences.append("Worked in high-pressure/corporate environments")
+
+        if is_yes(therapist.performing_arts):
+            virtual_lived_experiences.append("Creative or artistic background")
+
+        if "non-traditional" in str(therapist.family_household or "").lower():
+            virtual_lived_experiences.append("Non-traditional family")
+
+        if "collectivist" in str(therapist.culture or "").lower():
+            virtual_lived_experiences.append("Collectivist culture")
+
+        if "individualist" in str(therapist.culture or "").lower():
+            virtual_lived_experiences.append("Individualist culture")
+
+        if is_yes(therapist.social_media_affected):
+            virtual_lived_experiences.append("Social media affected")
+
+        # DEDUPLICATE: Remove duplicates if both consolidated array and individual fields provided
+        virtual_lived_experiences = list(set(virtual_lived_experiences))
+
+        # What matching algorithm actually uses
+        matchable_lived_experiences = []
+        for experience in virtual_lived_experiences:
+            canonical = normalize_lived_experience(experience)
+            if canonical:
+                matchable_lived_experiences.append({
+                    "display": experience,
+                    "canonical_key": canonical,
+                    "can_match": True
+                })
+
+        lived_experiences_result = {
+            "source_columns": lived_experiences_sources,
+            "virtual_consolidated_array": virtual_lived_experiences,
+            "virtual_count": len(virtual_lived_experiences),
+            "matchable_experiences": matchable_lived_experiences if show_matching else None,
+            "matchable_count": len(matchable_lived_experiences),
+            "data_source": "consolidated_array" if therapist.lived_experiences else "individual_fields",
+            "notes": [
+                "NEW: Now pulling from Airtable 'Lived Experiences' column (if populated)",
+                "Priority 1: Use 'lived_experiences_array' from Airtable",
+                "Priority 2: Fallback to individual boolean/text fields",
+                "Duplicates automatically removed",
+                "Matching algorithm uses normalized canonical keys"
+            ],
+            "missing_fields": [
+                "No field for: Chronic illness or disability",
+                "No field for: Veteran or military family",
+                "No field for: Active & holistic lifestyle"
+            ]
+        }
+
+        response = {
+            "therapist": {
+                "name": therapist.name,
+                "email": therapist.email,
+                "program": therapist.program,
+                "states": therapist.states_array or []
+            },
+            "diagnoses_specialties": diagnoses_specialties_result,
+            "lived_experiences": lived_experiences_result,
+            "summary": {
+                "diagnoses_specialties_total": len(all_diagnoses_specialties),
+                "diagnoses_specialties_normalized": len(normalized_diagnoses_specialties),
+                "lived_experiences_total": len(virtual_lived_experiences),
+                "lived_experiences_matchable": len(matchable_lived_experiences),
+                "data_quality": {
+                    "has_diagnoses_array": len(therapist.diagnoses_specialties_array or []) > 0,
+                    "diagnoses_sources_consistent": len(all_diagnoses_specialties) > 0,
+                    "lived_experiences_populated": len(virtual_lived_experiences) > 0
+                }
+            }
+        }
+
+        session.close()
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Error in amalgamation debug endpoint: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500

@@ -41,6 +41,14 @@ def create_app(config: Config) -> Flask:
     try:
         init_db(app, config)  # Pass both app and config
         logger.info("✅ Database initialized successfully")
+
+        # Run database migrations after successful DB initialization
+        try:
+            from src.db.migrations import run_migrations
+            run_migrations()
+        except Exception as migration_error:
+            logger.error(f"❌ Migration error: {str(migration_error)}")
+            # Don't fail startup - migrations are optional/idempotent
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {str(e)}")
         logger.warning("🚨 App starting without database connection - health endpoint will show degraded status")
