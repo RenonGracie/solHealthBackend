@@ -715,7 +715,7 @@ Payment Type: {client_response.payment_type}
 """,
                 timezone_name=calendar_timezone_name,
                 create_meets_link=True,  # This fixes the missing Google Meets links issue
-                send_updates="none",
+                send_updates="all",
             )
 
             if google_calendar_result and google_calendar_result.get("success"):
