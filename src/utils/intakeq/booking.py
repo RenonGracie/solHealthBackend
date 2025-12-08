@@ -425,6 +425,7 @@ def determine_session_id(session_type: str, services: List[Dict[str, Any]]) -> s
     # Hardcoded service IDs (priority over name matching)
     hardcoded_service_ids = {
         "First Session (Free)(Google Meets)": "4ec1981f-7f0d-4ee3-848e-0dbdd0c29f24",
+        "First Session (100% Free)": "4ec1981f-7f0d-4ee3-848e-0dbdd0c29f24",
     }
 
     # Check if we have a hardcoded service ID for this session type
